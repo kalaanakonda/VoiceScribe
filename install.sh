@@ -11,6 +11,9 @@ APP_NAME="VoiceScribe.app"
 APP_PATH="/Applications/$APP_NAME"
 BUNDLE_ID="com.voicescribe.app"
 
+# Version is read from the repo's VERSION file (fallback: 1.0.0)
+VS_VERSION="1.0.0"
+
 # ── Colours ──────────────────────────────────────────────────────────────────
 bold="\033[1m"
 dim="\033[2m"
@@ -58,16 +61,23 @@ else
 fi
 ok "Source ready at $INSTALL_DIR"
 
-# ── Virtual environment ──────────────────────────────────────────────────────
-info "Setting up Python virtual environment…"
-if [[ ! -d venv ]]; then
-  python3 -m venv venv
+# Read version from repo
+if [[ -f "$INSTALL_DIR/VERSION" ]]; then
+  VS_VERSION="$(cat "$INSTALL_DIR/VERSION" | tr -d '[:space:]')"
+  info "Version: $VS_VERSION"
 fi
-source venv/bin/activate
+
+# ── Virtual environment ──────────────────────────────────────────────────────
+cd "$INSTALL_DIR"
+info "Setting up Python virtual environment…"
+if [[ ! -d "$INSTALL_DIR/venv" ]]; then
+  python3 -m venv "$INSTALL_DIR/venv"
+fi
+source "$INSTALL_DIR/venv/bin/activate"
 
 info "Installing dependencies (this may take a minute)…"
 pip install --upgrade pip -q
-pip install -r requirements.txt -q
+pip install -r "$INSTALL_DIR/requirements.txt" -q
 ok "Dependencies installed"
 
 # ── Build native launcher ────────────────────────────────────────────────────
@@ -167,7 +177,9 @@ cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleVersion</key>
-  <string>1.0</string>
+  <string>VOICESCRIBE_VERSION_PLACEHOLDER</string>
+  <key>CFBundleShortVersionString</key>
+  <string>VOICESCRIBE_VERSION_PLACEHOLDER</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSPrincipalClass</key>
@@ -184,6 +196,9 @@ cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
 </dict>
 </plist>
 PLIST
+
+# Patch version into plist
+sed -i '' "s|VOICESCRIBE_VERSION_PLACEHOLDER|${VS_VERSION}|g" "$APP_PATH/Contents/Info.plist"
 
 # ── Code sign ────────────────────────────────────────────────────────────────
 info "Signing app bundle…"

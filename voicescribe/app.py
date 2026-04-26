@@ -9,11 +9,21 @@ import subprocess
 from AppKit import NSEvent, NSFlagsChangedMask, NSPasteboard, NSPasteboardTypeString
 import rumps
 
+from voicescribe import __version__
+from voicescribe.crash_log import (
+    log_info, log_error, log_startup, install_global_handler, get_log_path,
+)
+
+# Install global crash handler immediately
+install_global_handler()
+
 # ── File-based logging (stdout is swallowed by the .app launcher) ────────────
 _LOG = "/tmp/voicescribe_debug.log"
 def _log(msg):
     with open(_LOG, "a") as f:
         f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+    # Also write to persistent crash log
+    log_info(msg)
 
 
 # ── Permission checks ───────────────────────────────────────────────────────
@@ -111,6 +121,7 @@ from voicescribe.transcriber import Transcriber
 from voicescribe.cleaner import clean
 from voicescribe.overlay import WaveformOverlay
 from voicescribe.dashboard import DashboardWindow
+from voicescribe.updater import check_for_update
 from voicescribe import stats
 
 MODEL_SIZES = ["tiny", "base", "small", "medium"]
@@ -120,6 +131,10 @@ DEFAULT_MODEL = "base"
 class VoiceScribeApp(rumps.App):
     def __init__(self):
         super().__init__("VoiceScribe", title="\U0001f3a4", quit_button=None)
+
+        # Log startup with system info
+        log_startup()
+        _log(f"VoiceScribe v{__version__} launching")
 
         self.recorder = Recorder()
         self.transcriber = Transcriber(DEFAULT_MODEL)
@@ -143,6 +158,11 @@ class VoiceScribeApp(rumps.App):
         self.clean_toggle = rumps.MenuItem("Remove filler words", callback=self._toggle_clean)
         self.clean_toggle.state = True
 
+        self.version_item = rumps.MenuItem(f"v{__version__}")
+        self.version_item.set_callback(None)
+
+        self.update_item = None  # shown only when update available
+
         self.menu = [
             self.record_btn,
             self.status_item,
@@ -151,6 +171,9 @@ class VoiceScribeApp(rumps.App):
             None,
             self.model_menu,
             self.clean_toggle,
+            None,
+            rumps.MenuItem("View Error Log", callback=self._open_log),
+            self.version_item,
             None,
             rumps.MenuItem("Quit", callback=self._quit),
         ]
@@ -164,6 +187,9 @@ class VoiceScribeApp(rumps.App):
             from PyObjCTools import AppHelper
             AppHelper.callAfter(_request_permissions)
         threading.Timer(1.0, _deferred_perms).start()
+
+        # Check for updates (non-blocking, fires callback only if newer version exists)
+        check_for_update(self._on_update_available)
 
     def _register_hotkey(self):
         FN_FLAG = 0x800000
@@ -273,7 +299,8 @@ class VoiceScribeApp(rumps.App):
                 except Exception:
                     pass
         except Exception as e:
-            print(f"Error: {e}", flush=True)
+            log_error(f"Transcription failed: {e}", e)
+            _log(f"[process] error: {e}")
             self.title = "\U0001f3a4"
             self.status_item.title = f"Error: {str(e)[:40]}"
 
@@ -338,7 +365,35 @@ class VoiceScribeApp(rumps.App):
 
         AppHelper.callAfter(_do_paste)
 
+    def _on_update_available(self, latest_version, download_url):
+        """Called on the main thread when a newer release is found on GitHub."""
+        _log(f"[update] new version available: {latest_version}")
+        self._update_url = download_url
+        # Add a highlighted menu item
+        update_btn = rumps.MenuItem(
+            f"⬆ Update Available: v{latest_version}",
+            callback=self._open_update_page,
+        )
+        self.menu.insert_after(self.version_item.title, update_btn)
+        # Show a notification
+        rumps.notification(
+            "VoiceScribe Update Available",
+            f"v{latest_version} is out",
+            "Click 'Update Available' in the menu bar to get it.",
+            sound=False,
+        )
+
+    def _open_update_page(self, _):
+        url = getattr(self, "_update_url", f"https://github.com/kalaanakonda/VoiceScribe/releases")
+        subprocess.Popen(["open", url])
+
+    def _open_log(self, _):
+        """Open the crash log in Console.app / default text editor."""
+        log_path = get_log_path()
+        subprocess.Popen(["open", log_path])
+
     def _quit(self, _):
+        _log("VoiceScribe quitting")
         self.overlay.hide()
         rumps.quit_application()
 
