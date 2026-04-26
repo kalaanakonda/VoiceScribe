@@ -5,29 +5,33 @@ import time
 
 import objc
 from AppKit import (
-    NSWindow, NSView, NSColor, NSScreen,
+    NSPanel, NSView, NSColor, NSScreen,
     NSTimer, NSGraphicsContext,
     NSBorderlessWindowMask, NSBackingStoreBuffered,
+    NSNonactivatingPanelMask,
 )
 from Foundation import NSMakeRect, NSMakePoint
 import Quartz
 
 
-WINDOW_W = 180.0
+WINDOW_W = 214.0
 WINDOW_H = 44.0
 DOT_COUNT = 22
+STOP_BTN_W = 34.0  # width of the stop-button hit area on the right
 
 
 # ─── PillView (NSView subclass) ───────────────────────────────────────────────
 class PillView(NSView):
-    def initWithFrame_recorder_(self, frame, recorder):
+    def initWithFrame_recorder_onStop_(self, frame, recorder, on_stop):
         self = objc.super(PillView, self).initWithFrame_(frame)
         if self is None:
             return None
         self._recorder = recorder
+        self._on_stop = on_stop
         self._phase = 0.0
         self._start = time.time()
         self._timer = None
+        self._stop_hover = False
         return self
 
     @objc.python_method
@@ -43,6 +47,25 @@ class PillView(NSView):
             self._timer = None
 
     def tick_(self, _timer):
+        self.setNeedsDisplay_(True)
+
+    def acceptsFirstMouse_(self, event):
+        return True
+
+    def mouseDown_(self, event):
+        loc = self.convertPoint_fromView_(event.locationInWindow(), None)
+        bounds = self.bounds()
+        stop_x = bounds.size.width - STOP_BTN_W
+        if loc.x >= stop_x:
+            if self._on_stop:
+                self._on_stop()
+
+    def mouseEntered_(self, event):
+        self._stop_hover = True
+        self.setNeedsDisplay_(True)
+
+    def mouseExited_(self, event):
+        self._stop_hover = False
         self.setNeedsDisplay_(True)
 
     def isFlipped(self):
@@ -100,9 +123,11 @@ class PillView(NSView):
         Quartz.CGContextRestoreGState(ctx)
 
         # ── Waveform dots (grayscale, centred, tight) ──
+        # Dots occupy [margin, w - STOP_BTN_W], stop button lives in [w - STOP_BTN_W, w - margin]
         cy = h / 2.0
         margin = 14.0
-        total_w = w - margin * 2.0
+        dots_right = w - STOP_BTN_W
+        total_w = dots_right - margin
         max_amp = (h / 2.0) - 6.0  # keep dots inside the pill
 
         for i in range(DOT_COUNT):
@@ -131,6 +156,33 @@ class PillView(NSView):
             )
             Quartz.CGContextRestoreGState(ctx)
 
+        # ── Stop button (right side of the pill) ──
+        btn_cx = w - STOP_BTN_W / 2.0 - 4.0
+        btn_cy = h / 2.0
+
+        # Red circle background for stop button
+        circle_r = 11.0
+        Quartz.CGContextSaveGState(ctx)
+        red_alpha = 1.0 if self._stop_hover else 0.92
+        Quartz.CGContextSetFillColorWithColor(
+            ctx, Quartz.CGColorCreate(cs, [0.92, 0.26, 0.21, red_alpha])
+        )
+        Quartz.CGContextFillEllipseInRect(
+            ctx, Quartz.CGRectMake(btn_cx - circle_r, btn_cy - circle_r, circle_r * 2, circle_r * 2)
+        )
+        Quartz.CGContextRestoreGState(ctx)
+
+        # White stop square centered on circle
+        sq = 7.0
+        Quartz.CGContextSaveGState(ctx)
+        Quartz.CGContextSetFillColorWithColor(
+            ctx, Quartz.CGColorCreate(cs, [1.0, 1.0, 1.0, 1.0])
+        )
+        Quartz.CGContextFillRect(
+            ctx, Quartz.CGRectMake(btn_cx - sq / 2.0, btn_cy - sq / 2.0, sq, sq)
+        )
+        Quartz.CGContextRestoreGState(ctx)
+
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def _rounded_rect_path(rect, radius):
@@ -158,7 +210,7 @@ class WaveformOverlay:
         self._window = None
         self._view = None
 
-    def show(self, recorder):
+    def show(self, recorder, on_stop=None):
         if self._window is not None:
             return
         print("[pill] show() called", flush=True)
@@ -170,9 +222,12 @@ class WaveformOverlay:
         y = sf.origin.y + sf.size.height - WINDOW_H - 80.0
         win_rect = NSMakeRect(x, y, WINDOW_W, WINDOW_H)
 
-        win = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+        # NSPanel with NSNonactivatingPanelMask: accepts clicks without ever
+        # becoming key window, so the previously-focused text field keeps its
+        # focus when the user clicks the stop button.
+        win = NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
             win_rect,
-            NSBorderlessWindowMask,
+            NSBorderlessWindowMask | NSNonactivatingPanelMask,
             NSBackingStoreBuffered,
             False,
         )
@@ -182,17 +237,24 @@ class WaveformOverlay:
         win.setOpaque_(False)
         win.setBackgroundColor_(NSColor.clearColor())
         win.setHasShadow_(False)
-        win.setIgnoresMouseEvents_(True)
+        # Accept clicks on the pill — but the nonactivating panel mask
+        # ensures clicking does NOT steal key-window focus from the app behind.
+        win.setIgnoresMouseEvents_(False)
+        win.setBecomesKeyOnlyIfNeeded_(True)
+        win.setHidesOnDeactivate_(False)
+        win.setFloatingPanel_(True)
         win.setCollectionBehavior_(
             Quartz.NSWindowCollectionBehaviorCanJoinAllSpaces |
             Quartz.NSWindowCollectionBehaviorStationary |
             Quartz.NSWindowCollectionBehaviorFullScreenAuxiliary
         )
 
-        view = PillView.alloc().initWithFrame_recorder_(
-            NSMakeRect(0, 0, WINDOW_W, WINDOW_H), recorder
+        view = PillView.alloc().initWithFrame_recorder_onStop_(
+            NSMakeRect(0, 0, WINDOW_W, WINDOW_H), recorder, on_stop
         )
         win.setContentView_(view)
+        # orderFrontRegardless shows the window without activating our app,
+        # preserving whichever app/text-field was focused before.
         win.orderFrontRegardless()
         view.startTimer()
 

@@ -42,7 +42,7 @@ class VoiceScribeApp(rumps.App):
         self.dashboard = DashboardWindow()
         self._record_started_at = 0.0
 
-        self.record_btn = rumps.MenuItem("Start Recording  (double-tap Fn)", callback=self._toggle_recording)
+        self.record_btn = rumps.MenuItem("Start Recording", callback=self._toggle_recording)
         self.dashboard_btn = rumps.MenuItem("Open Dashboard", callback=self._open_dashboard)
         self.status_item = rumps.MenuItem("Ready")
         self.status_item.set_callback(None)
@@ -94,7 +94,7 @@ class VoiceScribeApp(rumps.App):
 
     def _load_model(self):
         self.status_item.title = "Loading model..."
-        self.title = "\u231B"
+        self.title = "⌛"
         self.transcriber.load()
         self.status_item.title = "Ready"
         self.title = "\U0001f3a4"
@@ -123,19 +123,25 @@ class VoiceScribeApp(rumps.App):
     def _start_recording(self):
         self.recording = True
         self.title = "\U0001f534"
-        self.record_btn.title = "Stop Recording  (double-tap Fn)"
+        self.record_btn.title = "Stop Recording"
         self.status_item.title = "Recording..."
         self._record_started_at = time.time()
         self.recorder.start()
-        self.overlay.show(self.recorder)
+        self.overlay.show(self.recorder, on_stop=self._stop_from_pill)
+
+    def _stop_from_pill(self):
+        """Callback fired when the user clicks the stop button on the pill."""
+        if self.recording:
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(self._stop_recording)
 
     def _open_dashboard(self, _):
         self.dashboard.show()
 
     def _stop_recording(self):
         self.recording = False
-        self.title = "\u231B"
-        self.record_btn.title = "Start Recording  (double-tap Fn)"
+        self.title = "⌛"
+        self.record_btn.title = "Start Recording"
         self.status_item.title = "Transcribing..."
         self.overlay.hide()
         threading.Thread(target=self._process, daemon=True).start()
@@ -202,8 +208,6 @@ class VoiceScribeApp(rumps.App):
             except Exception as e:
                 print(f"[paste] error: {e}", flush=True)
 
-        # Hop to main thread. callAfter uses the main runloop, so this runs
-        # after the short delay for the pasteboard to settle.
         AppHelper.callAfter(_do_paste)
 
     def _quit(self, _):
