@@ -5,8 +5,94 @@ import sys
 import time
 import threading
 import fcntl
+import subprocess
 from AppKit import NSEvent, NSFlagsChangedMask, NSPasteboard, NSPasteboardTypeString
 import rumps
+
+# ── File-based logging (stdout is swallowed by the .app launcher) ────────────
+_LOG = "/tmp/voicescribe_debug.log"
+def _log(msg):
+    with open(_LOG, "a") as f:
+        f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+
+
+# ── Permission checks ───────────────────────────────────────────────────────
+def _check_accessibility():
+    """Check if Accessibility permission is granted.  If not, trigger the
+    macOS system prompt and show a rumps notification."""
+    import ctypes
+    import ctypes.util
+    # Load ApplicationServices framework
+    lib = ctypes.cdll.LoadLibrary(
+        ctypes.util.find_library("ApplicationServices")
+    )
+    # AXIsProcessTrustedWithOptions(options) → bool
+    # Passing kAXTrustedCheckOptionPrompt=True makes macOS show the
+    # "allow Accessibility" dialog automatically.
+    from Foundation import NSDictionary
+    import objc
+    CoreFoundation = ctypes.cdll.LoadLibrary(
+        ctypes.util.find_library("CoreFoundation")
+    )
+    try:
+        # Use PyObjC to call AXIsProcessTrustedWithOptions
+        from ApplicationServices import AXIsProcessTrustedWithOptions
+        opts = NSDictionary.dictionaryWithObject_forKey_(True, "AXTrustedCheckOptionPrompt")
+        trusted = AXIsProcessTrustedWithOptions(opts)
+    except ImportError:
+        # Fallback: call via ctypes
+        lib.AXIsProcessTrustedWithOptions.restype = ctypes.c_bool
+        lib.AXIsProcessTrustedWithOptions.argtypes = [ctypes.c_void_p]
+        trusted = lib.AXIsProcessTrustedWithOptions(None)
+    return trusted
+
+
+def _check_microphone():
+    """Check microphone permission by attempting a quick recording."""
+    import AVFoundation
+    status = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
+        AVFoundation.AVMediaTypeAudio
+    )
+    # 0=NotDetermined, 1=Restricted, 2=Denied, 3=Authorized
+    if status == 0:
+        # Not yet asked — requesting will trigger the system prompt
+        # (handled by Info.plist NSMicrophoneUsageDescription)
+        return None  # will be asked on first use
+    return status == 3
+
+
+def _request_permissions():
+    """Check and request all needed permissions on startup."""
+    # Accessibility — triggers system prompt if not granted
+    ax_ok = _check_accessibility()
+    _log(f"[permissions] Accessibility: {'granted' if ax_ok else 'NOT granted'}")
+    if not ax_ok:
+        rumps.notification(
+            "VoiceScribe — Permission Needed",
+            "Accessibility access required",
+            "Open System Settings → Privacy & Security → Accessibility and add VoiceScribe. "
+            "Without this, auto-paste won't work.",
+            sound=True,
+        )
+        # Open the settings pane
+        subprocess.Popen([
+            "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        ])
+
+    # Microphone — Info.plist triggers the prompt automatically on first use,
+    # but let's check and log the status
+    mic_ok = _check_microphone()
+    _log(f"[permissions] Microphone: {'granted' if mic_ok else 'not yet granted' if mic_ok is None else 'DENIED'}")
+    if mic_ok is False:
+        rumps.notification(
+            "VoiceScribe — Permission Needed",
+            "Microphone access required",
+            "Open System Settings → Privacy & Security → Microphone and enable VoiceScribe.",
+            sound=True,
+        )
+        subprocess.Popen([
+            "open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+        ])
 
 # ── Single-instance lock ──────────────────────────────────────────────────────
 _LOCK_FILE = "/tmp/voicescribe.lock"
@@ -72,6 +158,12 @@ class VoiceScribeApp(rumps.App):
         self._loading = True
         threading.Thread(target=self._load_model, daemon=True).start()
         self._register_hotkey()
+
+        # Check permissions after a short delay (event loop must be running)
+        def _deferred_perms():
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(_request_permissions)
+        threading.Timer(1.0, _deferred_perms).start()
 
     def _register_hotkey(self):
         FN_FLAG = 0x800000
@@ -163,6 +255,8 @@ class VoiceScribeApp(rumps.App):
             # Snippet expansion (e.g. "intro email" → template)
             text = stats.apply_snippets(text)
 
+            _log(f"[transcribe] result: '{text}'")
+
             if text:
                 self._auto_paste(text)
 
@@ -184,29 +278,63 @@ class VoiceScribeApp(rumps.App):
             self.status_item.title = f"Error: {str(e)[:40]}"
 
     def _auto_paste(self, text):
-        """Copy to clipboard and simulate Cmd+V — synthesis MUST run on main thread
-        because macOS 26's TSM asserts main-thread for keyboard input source lookup."""
+        """Copy to clipboard and simulate Cmd+V.
+        Tries multiple strategies to work around macOS permission quirks."""
+        _log("[paste] copying to clipboard...")
         pb = NSPasteboard.generalPasteboard()
         pb.clearContents()
-        pb.setString_forType_(text, NSPasteboardTypeString)
+        ok = pb.setString_forType_(text, NSPasteboardTypeString)
+        _log(f"[paste] clipboard set: {ok}")
 
         from PyObjCTools import AppHelper
-        from Quartz import (
-            CGEventCreateKeyboardEvent, CGEventPost, CGEventSetFlags,
-            kCGHIDEventTap, kCGEventFlagMaskCommand,
-        )
-        KVK_V = 9  # ANSI "V"
 
         def _do_paste():
             try:
-                down = CGEventCreateKeyboardEvent(None, KVK_V, True)
-                CGEventSetFlags(down, kCGEventFlagMaskCommand)
-                CGEventPost(kCGHIDEventTap, down)
-                up = CGEventCreateKeyboardEvent(None, KVK_V, False)
-                CGEventSetFlags(up, kCGEventFlagMaskCommand)
-                CGEventPost(kCGHIDEventTap, up)
+                # Small delay to let clipboard settle and focus return
+                time.sleep(0.15)
+
+                # Strategy 1: In-process NSAppleScript (uses parent bundle identity)
+                _log("[paste] trying NSAppleScript...")
+                from Foundation import NSAppleScript
+                script = NSAppleScript.alloc().initWithSource_(
+                    'tell application "System Events" to keystroke "v" using command down'
+                )
+                result, error = script.executeAndReturnError_(None)
+                if error:
+                    err_msg = error.get("NSAppleScriptErrorMessage", "unknown")
+                    _log(f"[paste] NSAppleScript error: {err_msg}")
+
+                    # Strategy 2: CGEvent fallback
+                    _log("[paste] trying CGEvent Cmd+V...")
+                    from Quartz import (
+                        CGEventCreateKeyboardEvent, CGEventPost, CGEventSetFlags,
+                        kCGHIDEventTap, kCGEventFlagMaskCommand,
+                    )
+                    KVK_V = 9
+                    down = CGEventCreateKeyboardEvent(None, KVK_V, True)
+                    if down is not None:
+                        CGEventSetFlags(down, kCGEventFlagMaskCommand)
+                        CGEventPost(kCGHIDEventTap, down)
+                        up = CGEventCreateKeyboardEvent(None, KVK_V, False)
+                        CGEventSetFlags(up, kCGEventFlagMaskCommand)
+                        CGEventPost(kCGHIDEventTap, up)
+                        _log("[paste] CGEvent Cmd+V sent")
+
+                    # Strategy 3: osascript subprocess
+                    time.sleep(0.1)
+                    _log("[paste] trying osascript subprocess...")
+                    subprocess.Popen([
+                        "osascript", "-e",
+                        'tell application "System Events" to keystroke "v" using command down'
+                    ])
+                    _log("[paste] osascript sent")
+                else:
+                    _log("[paste] NSAppleScript Cmd+V sent ok")
+
             except Exception as e:
-                print(f"[paste] error: {e}", flush=True)
+                _log(f"[paste] error: {e}")
+                import traceback
+                _log(traceback.format_exc())
 
         AppHelper.callAfter(_do_paste)
 

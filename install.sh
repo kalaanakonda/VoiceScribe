@@ -145,6 +145,11 @@ cp "$LAUNCHER_BIN" "$APP_PATH/Contents/MacOS/VoiceScribe"
 chmod +x "$APP_PATH/Contents/MacOS/VoiceScribe"
 rm -f "$LAUNCHER_BIN"
 
+# Copy app icon if present
+if [[ -f "$INSTALL_DIR/VoiceScribe.icns" ]]; then
+  cp "$INSTALL_DIR/VoiceScribe.icns" "$APP_PATH/Contents/Resources/VoiceScribe.icns"
+fi
+
 cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -156,6 +161,8 @@ cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
   <key>CFBundleIdentifier</key>
   <string>com.voicescribe.app</string>
   <key>CFBundleName</key>
+  <string>VoiceScribe</string>
+  <key>CFBundleIconFile</key>
   <string>VoiceScribe</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
