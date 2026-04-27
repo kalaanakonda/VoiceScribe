@@ -29,7 +29,15 @@ fail()  { printf "${red}✗ %s${reset}\n" "$*"; exit 1; }
 [[ "$(uname)" == "Darwin" ]] || fail "VoiceScribe only runs on macOS."
 
 command -v git  >/dev/null 2>&1 || fail "git is required.  Install Xcode CLT:  xcode-select --install"
+command -v clang >/dev/null 2>&1 || fail "clang is required.  Install Xcode CLT:  xcode-select --install"
 command -v python3 >/dev/null 2>&1 || fail "python3 is required.  Install from python.org or via Homebrew."
+
+# Python version check — faster-whisper needs >= 3.8
+PY_VER="$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+PY_MAJOR="${PY_VER%.*}"; PY_MINOR="${PY_VER#*.}"
+if (( PY_MAJOR < 3 || (PY_MAJOR == 3 && PY_MINOR < 9) )); then
+  fail "Python 3.9+ required (you have $PY_VER).  Install via Homebrew: brew install python@3.11"
+fi
 
 # Check architecture
 ARCH="$(uname -m)"
@@ -41,6 +49,8 @@ if pgrep -f "voicescribe" >/dev/null 2>&1; then
   pkill -f "voicescribe" 2>/dev/null || true
   sleep 1
 fi
+# Clean up any stale lock file from forced termination
+rm -f /tmp/voicescribe.lock 2>/dev/null || true
 
 # ── Clone / update repo ─────────────────────────────────────────────────────
 if [[ -d "$INSTALL_DIR/.git" ]]; then
@@ -218,7 +228,18 @@ sed -i '' "s|VOICESCRIBE_VERSION_PLACEHOLDER|${VS_VERSION}|g" "$APP_PATH/Content
 
 # ── Code sign ────────────────────────────────────────────────────────────────
 info "Signing app bundle…"
+# Deep-sign the bundle first, then re-sign paste_helper with the app's bundle
+# identifier so TCC attributes its keystrokes to com.voicescribe.app rather
+# than to a synthetic "paste_helper-<hash>" identity (which would force the
+# user to grant Accessibility permission separately).
 codesign --force --deep --sign - "$APP_PATH" 2>/dev/null || true
+if [[ -f "$APP_PATH/Contents/MacOS/paste_helper" ]]; then
+  codesign --force --sign - --identifier "$BUNDLE_ID" \
+    "$APP_PATH/Contents/MacOS/paste_helper" 2>/dev/null || true
+fi
+
+# Strip quarantine attribute (if any) so Gatekeeper doesn't pop a warning
+xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true
 ok "App bundle ready at $APP_PATH"
 
 # ── Done ─────────────────────────────────────────────────────────────────────
@@ -228,8 +249,15 @@ echo ""
 echo "  Open it from /Applications, or run:"
 echo "    open /Applications/VoiceScribe.app"
 echo ""
-echo "  First launch will download the Whisper model (~150 MB)."
-echo "  macOS will ask for Microphone + Accessibility permissions — grant both."
+echo "  ${bold}First launch:${reset}"
+echo "    • The Whisper model (~150 MB) downloads silently in the background."
+echo "      The menu-bar icon stays as ⌛ until ready (~30s on fast wifi)."
+echo "    • macOS will ask for Microphone + Accessibility permissions."
+echo "      Grant BOTH or auto-paste won't work."
+echo ""
+echo "  ${bold}Hotkey:${reset} double-tap Fn to start, double-tap again to stop."
+echo "    If macOS Dictation is enabled (System Settings → Keyboard → Dictation),"
+echo "    set its shortcut to something else to avoid Fn-key conflicts."
 echo ""
 echo "  To update later:  curl -fsSL https://raw.githubusercontent.com/kalaanakonda/VoiceScribe/main/install.sh | bash"
 echo "  To uninstall:     rm -rf ~/.voicescribe /Applications/VoiceScribe.app"
