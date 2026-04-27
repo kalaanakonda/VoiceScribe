@@ -306,7 +306,15 @@ class VoiceScribeApp(rumps.App):
 
     def _auto_paste(self, text):
         """Copy to clipboard and simulate Cmd+V.
-        Tries multiple strategies to work around macOS permission quirks."""
+
+        Strategy order (best → worst):
+          1. paste_helper — native binary inside VoiceScribe.app/Contents/MacOS,
+             so TCC attributes the keystroke to com.voicescribe.app (NOT to
+             Python). This is the only strategy that works reliably after a
+             macOS update or TCC reset.
+          2. NSAppleScript / CGEvent / osascript — fallbacks if the helper
+             isn't installed (e.g. running from source via `python run.py`).
+        """
         _log("[paste] copying to clipboard...")
         pb = NSPasteboard.generalPasteboard()
         pb.clearContents()
@@ -317,10 +325,21 @@ class VoiceScribeApp(rumps.App):
 
         def _do_paste():
             try:
+                # Strategy 1 — bundled paste_helper (the reliable path)
+                helper = "/Applications/VoiceScribe.app/Contents/MacOS/paste_helper"
+                if os.path.exists(helper):
+                    _log("[paste] launching paste_helper...")
+                    try:
+                        subprocess.Popen([helper])
+                        _log("[paste] paste_helper launched")
+                        return
+                    except Exception as e:
+                        _log(f"[paste] paste_helper failed: {e}")
+
                 # Small delay to let clipboard settle and focus return
                 time.sleep(0.15)
 
-                # Strategy 1: In-process NSAppleScript (uses parent bundle identity)
+                # Strategy 2: In-process NSAppleScript (uses parent bundle identity)
                 _log("[paste] trying NSAppleScript...")
                 from Foundation import NSAppleScript
                 script = NSAppleScript.alloc().initWithSource_(
@@ -331,7 +350,7 @@ class VoiceScribeApp(rumps.App):
                     err_msg = error.get("NSAppleScriptErrorMessage", "unknown")
                     _log(f"[paste] NSAppleScript error: {err_msg}")
 
-                    # Strategy 2: CGEvent fallback
+                    # Strategy 3: CGEvent fallback
                     _log("[paste] trying CGEvent Cmd+V...")
                     from Quartz import (
                         CGEventCreateKeyboardEvent, CGEventPost, CGEventSetFlags,
@@ -347,7 +366,7 @@ class VoiceScribeApp(rumps.App):
                         CGEventPost(kCGHIDEventTap, up)
                         _log("[paste] CGEvent Cmd+V sent")
 
-                    # Strategy 3: osascript subprocess
+                    # Strategy 4: osascript subprocess
                     time.sleep(0.1)
                     _log("[paste] trying osascript subprocess...")
                     subprocess.Popen([
@@ -360,6 +379,7 @@ class VoiceScribeApp(rumps.App):
 
             except Exception as e:
                 _log(f"[paste] error: {e}")
+                log_error("Paste failed", e)
                 import traceback
                 _log(traceback.format_exc())
 

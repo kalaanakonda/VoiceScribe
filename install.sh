@@ -155,6 +155,22 @@ cp "$LAUNCHER_BIN" "$APP_PATH/Contents/MacOS/VoiceScribe"
 chmod +x "$APP_PATH/Contents/MacOS/VoiceScribe"
 rm -f "$LAUNCHER_BIN"
 
+# Build paste_helper — native binary that sends Cmd+V.
+# Living inside the .app bundle, it inherits VoiceScribe's TCC identity
+# instead of being attributed to Python.
+if [[ -f "$INSTALL_DIR/paste_helper.c" ]]; then
+  info "Building paste_helper…"
+  if [[ "$ARCH" == "arm64" ]]; then
+    clang -arch arm64 -O2 -framework ApplicationServices \
+      -o "$APP_PATH/Contents/MacOS/paste_helper" "$INSTALL_DIR/paste_helper.c"
+  else
+    clang -O2 -framework ApplicationServices \
+      -o "$APP_PATH/Contents/MacOS/paste_helper" "$INSTALL_DIR/paste_helper.c"
+  fi
+  chmod +x "$APP_PATH/Contents/MacOS/paste_helper"
+  ok "paste_helper built"
+fi
+
 # Copy app icon if present
 if [[ -f "$INSTALL_DIR/VoiceScribe.icns" ]]; then
   cp "$INSTALL_DIR/VoiceScribe.icns" "$APP_PATH/Contents/Resources/VoiceScribe.icns"
