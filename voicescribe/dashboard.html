@@ -318,6 +318,72 @@
   }
   .ai-row select:focus { border-color: #444; }
 
+  /* Developer mode accordion */
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .accordion-header:hover .accordion-title { color: #fff; }
+  .accordion-title {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--text);
+    letter-spacing: -0.005em;
+    transition: color 0.15s;
+  }
+  .accordion-icon {
+    color: var(--muted);
+    font-size: 14px;
+    transition: transform 0.18s;
+  }
+  .accordion.open .accordion-icon { transform: rotate(180deg); color: var(--text); }
+  .accordion-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.22s ease, padding 0.22s ease;
+  }
+  .accordion.open .accordion-body {
+    max-height: 240px;
+    padding: 4px 0 16px;
+  }
+  .accordion-body p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+    margin: 0 0 8px;
+  }
+  .accordion-body code {
+    background: #0a0a0a;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 11px;
+    color: #d8d8d8;
+  }
+
+  /* Section title in serif (matches Wispr aesthetic) */
+  .dev-headline {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--text);
+    margin: 0 0 6px;
+  }
+  .dev-sub {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
   /* iOS-style toggle switch */
   .switch {
     position: relative;
@@ -451,6 +517,41 @@ function renderHome(s) {
     </div>
 
     <div class="section">
+      <div class="dev-headline">Speaks your code's language.</div>
+      <div class="dev-sub">When you talk like a developer, VoiceScribe writes like one. No flag to flip — it kicks in automatically the moment it hears a filename, hook, or command.</div>
+      <div class="accordion" id="acc-files">
+        <div class="accordion-header" data-acc="files">
+          <span class="accordion-title">Filenames</span>
+          <span class="accordion-icon">▾</span>
+        </div>
+        <div class="accordion-body">
+          <p>Say "<em>app dot py</em>" — get <code>app.py</code>. Say "<em>tsconfig dot json</em>" — get <code>tsconfig.json</code>.</p>
+          <p>Recognised extensions: <code>.py</code> <code>.js</code> <code>.ts</code> <code>.tsx</code> <code>.html</code> <code>.css</code> <code>.json</code> <code>.md</code> <code>.env</code> <code>.sh</code> <code>.go</code> <code>.rs</code> <code>.yaml</code></p>
+        </div>
+      </div>
+      <div class="accordion" id="acc-syntax">
+        <div class="accordion-header" data-acc="syntax">
+          <span class="accordion-title">Identifiers &amp; commands</span>
+          <span class="accordion-icon">▾</span>
+        </div>
+        <div class="accordion-body">
+          <p>Hooks, methods, and shell commands keep their casing — <code>useState</code>, <code>setCount</code>, <code>git push origin main</code>, <code>kubectl apply</code>.</p>
+          <p>Inline code is wrapped in backticks, so pastes into Markdown editors stay formatted.</p>
+        </div>
+      </div>
+      <div class="accordion" id="acc-jargon">
+        <div class="accordion-header" data-acc="jargon">
+          <span class="accordion-title">Acronyms &amp; tools</span>
+          <span class="accordion-icon">▾</span>
+        </div>
+        <div class="accordion-body">
+          <p>Names and acronyms stay verbatim: <code>API</code>, <code>JSON</code>, <code>PostgreSQL</code>, <code>OAuth</code>, <code>Next.js</code>, <code>TypeScript</code>, <code>Vercel</code>, <code>Ollama</code>.</p>
+          <p>Whisper itself is pre-biased with these terms, so they're transcribed correctly the first time — before polish even runs.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <h2>Time saved</h2>
       <div class="input-row">
         <label>Your typing speed</label>
@@ -496,6 +597,12 @@ function bindHome() {
       send("setPolish", {model: v});
     });
   }
+  // Accordion expand/collapse — pure CSS state, no round-trip needed
+  document.querySelectorAll(".accordion-header").forEach(h => {
+    h.addEventListener("click", () => {
+      h.parentElement.classList.toggle("open");
+    });
+  });
 }
 
 // ── HISTORY ─────────────────────────────────────────────────────────────────

@@ -291,8 +291,11 @@ class VoiceScribeApp(rumps.App):
                 self._flash_pill("No words detected")
                 return
 
-            # Bias transcription toward user's custom vocabulary
-            prompt = stats.dictionary_prompt()
+            # Bias transcription toward user's custom vocabulary, plus the
+            # built-in developer vocab (always on — auto-detection in the
+            # polisher decides whether dev rules actually apply downstream).
+            from voicescribe.polisher import DEV_VOCAB
+            prompt = (stats.dictionary_prompt() + " " + DEV_VOCAB).strip()
             text = self.transcriber.transcribe(audio, initial_prompt=prompt)
             _log(f"[transcribe] raw: '{text}'")
 

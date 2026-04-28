@@ -56,24 +56,10 @@ class _Bridge(NSObject):
             elif mtype == "removeSnippet":
                 stats.remove_snippet(body.get("trigger", ""))
             elif mtype == "setPolish":
-                en = body.get("enabled")
-                md = body.get("model")
-                # Log what we received so we can diagnose the toggle bug
-                try:
-                    with open("/tmp/voicescribe_debug.log", "a") as f:
-                        import time as _t
-                        f.write(f"{_t.strftime('%H:%M:%S')} [dashboard] setPolish received enabled={en!r} model={md!r}\n")
-                except Exception:
-                    pass
-                stats.set_polish(enabled=en, model=md)
-                # Log what's saved after
-                try:
-                    saved = stats.get_polish()
-                    with open("/tmp/voicescribe_debug.log", "a") as f:
-                        import time as _t
-                        f.write(f"{_t.strftime('%H:%M:%S')} [dashboard] setPolish saved -> {saved}\n")
-                except Exception:
-                    pass
+                stats.set_polish(
+                    enabled=body.get("enabled"),
+                    model=body.get("model"),
+                )
             self._controller.push_stats()
         except Exception as e:
             print(f"[dashboard] bridge error: {e}", flush=True)

@@ -21,6 +21,7 @@ def _default():
         "snippets": [],        # list of {trigger, expansion}
         "polish_enabled": False,  # AI polish via Ollama
         "polish_model": None,     # selected Ollama model name
+        "dev_mode": False,        # developer-aware polish + Whisper biasing
     }
 
 
@@ -94,6 +95,16 @@ def set_polish(enabled: bool = None, model: str = None):
         data["polish_enabled"] = bool(enabled)
     if model is not None:
         data["polish_model"] = model or None
+    _save(data)
+
+
+def get_dev_mode() -> bool:
+    return bool(_load().get("dev_mode", False))
+
+
+def set_dev_mode(enabled: bool):
+    data = _load()
+    data["dev_mode"] = bool(enabled)
     _save(data)
 
 

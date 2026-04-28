@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceScribe — Design System</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #121212;
+    --card: #161616;
+    --card2: #1c1c1c;
+    --border: #262626;
+    --hairline: #1f1f1f;
+    --text: #f0f0f0;
+    --text-2: #c8c8c8;
+    --muted: #7a7a7a;
+    --dim: #555;
+    --danger: #c33d3d;
+    --pill-red: #eb4338;
+    --green: #4ade80;
+    --warn: #e6b800;
+    --code-bg: #050505;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: var(--text); color: var(--bg); }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 80px 40px 160px; }
+
+  /* ── Type ── */
+  h1 { font-size: 56px; font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 16px; }
+  h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin: 80px 0 8px; }
+  h3 { font-size: 17px; font-weight: 600; letter-spacing: -0.005em; margin: 32px 0 8px; }
+  h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 12px; }
+  p { font-size: 15px; color: var(--text-2); margin-bottom: 14px; }
+  p.lede { font-size: 19px; color: #e0e0e0; line-height: 1.5; max-width: 680px; }
+  small, .meta { font-size: 12px; color: var(--muted); }
+
+  code {
+    font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #d8d8d8;
+  }
+
+  /* Layout primitives */
+  .hairline { border-top: 1px solid var(--hairline); margin: 64px 0; }
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 32px;
+    align-items: start;
+    margin-top: 16px;
+  }
+  .row .display {
+    background: #060606;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .row .specs h4 { margin-top: 0; }
+  .specs ul { list-style: none; margin: 0; padding: 0; }
+  .specs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 12px;
+  }
+  .specs li:last-child { border-bottom: 0; }
+  .specs li .k { color: var(--muted); }
+  .specs li .v { color: var(--text); font-family: "SF Mono", ui-monospace, monospace; }
+
+  /* TOC sidebar */
+  nav.toc {
+    position: fixed;
+    top: 80px;
+    left: 16px;
+    width: 180px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+  nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 8px; border-left: 1px solid var(--hairline); }
+  nav.toc a:hover { color: var(--text); border-left-color: var(--text); }
+  @media (max-width: 1320px) { nav.toc { display: none; } }
+
+  /* ── Color swatches ── */
+  .palette {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .swatch {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .swatch .chip {
+    width: 100%;
+    height: 64px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .swatch .name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .swatch .hex { font-size: 10px; color: var(--muted); font-family: "SF Mono", ui-monospace, monospace; margin-top: 2px; letter-spacing: 0.02em; }
+
+  /* ── Type scale demo ── */
+  .typescale {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .typescale .row-t { display: grid; grid-template-columns: 70px 1fr; align-items: baseline; gap: 16px; }
+  .typescale .label { color: var(--muted); font-size: 11px; font-family: "SF Mono", ui-monospace, monospace; }
+  .typescale .specimen { color: var(--text); }
+
+  /* ── Pill (replicates the actual product pill) ── */
+  .pill {
+    width: 214px;
+    height: 44px;
+    background: rgba(20, 20, 20, 0.94);
+    border: 1px solid #333;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    padding-right: 4px;
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .pill .dots {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-left: 14px;
+    gap: 6px;
+  }
+  .pill .dot {
+    width: 3.2px;
+    height: 3.2px;
+    border-radius: 50%;
+    background: rgba(240, 240, 240, 0.55);
+  }
+  /* live waveform pattern (frozen frame) */
+  .pill.recording .dot:nth-child(1)  { height: 3px; background: rgba(240,240,240,0.55); }
+  .pill.recording .dot:nth-child(2)  { height: 5px; background: rgba(240,240,240,0.7); }
+  .pill.recording .dot:nth-child(3)  { height: 8px; background: rgba(240,240,240,0.85); }
+  .pill.recording .dot:nth-child(4)  { height: 11px; background: rgba(255,255,255,0.95); }
+  .pill.recording .dot:nth-child(5)  { height: 16px; background: #fff; }
+  .pill.recording .dot:nth-child(6)  { height: 13px; background: rgba(255,255,255,0.95); }
+  .pill.recording .dot:nth-child(7)  { height: 9px; background: rgba(240,240,240,0.85); }
+  .pill.recording .dot:nth-child(8)  { height: 14px; background: rgba(255,255,255,0.95); }
+  .pill.recording .dot:nth-child(9)  { height: 7px; background: rgba(240,240,240,0.78); }
+  .pill.recording .dot:nth-child(10) { height: 4px; background: rgba(240,240,240,0.6); }
+  .pill.recording .dot:nth-child(n+11) { height: 3px; background: rgba(240,240,240,0.5); }
+  .pill .stop {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--pill-red);
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pill .stop::after {
+    content: "";
+    width: 7px; height: 7px;
+    background: #fff;
+  }
+  /* status modes */
+  .pill .status {
+    flex: 1;
+    text-align: center;
+    color: rgba(240,240,240,0.92);
+    font-size: 13px;
+    letter-spacing: 0.01em;
+  }
+  .pill.status-mode .stop { display: none; }
+  .pill.status-mode { padding-right: 0; }
+
+  /* ── Buttons ── */
+  .btn {
+    background: #eeeeee;
+    color: #0d0d0d;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:hover { background: #ffffff; }
+  .btn.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .iconbtn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 11px;
+    border-radius: 4px;
+  }
+  .iconbtn:hover { color: var(--text); background: #252525; }
+  .iconbtn.danger:hover { color: #ff8080; }
+  .iconbtn.is-hover { color: var(--text); background: #252525; }
+  .iconbtn.danger.is-hover { color: #ff8080; background: #252525; }
+
+  /* ── Inputs ── */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    max-width: 280px;
+  }
+  .field label { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .input, .select, .textarea {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    width: 100%;
+  }
+  .input:focus, .select:focus, .textarea:focus { border-color: #444; }
+  .input.is-focus, .select.is-focus { border-color: #444; }
+  .textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
+  .select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%237a7a7a' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  /* ── Toggle switch ── */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #333;
+    border-radius: 20px;
+    transition: 0.18s;
+    cursor: pointer;
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    height: 14px; width: 14px;
+    left: 3px; top: 3px;
+    background-color: #f0f0f0;
+    border-radius: 50%;
+    transition: 0.18s;
+  }
+  .switch input:checked + .slider { background-color: var(--green); }
+  .switch input:checked + .slider::before { transform: translateX(16px); }
+
+  /* ── Status dot ── */
+  .ai-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--dim);
+    display: inline-block;
+  }
+  .ai-dot.live { background: var(--green); box-shadow: 0 0 0 4px rgba(74,222,128,0.18); }
+  .ai-dot.idle { background: #6a6a6a; }
+  .ai-dot.warn { background: var(--warn); }
+  .ai-dot.offline { background: #6a3a3a; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+  }
+  .card.stat .num { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .card.stat .lbl { margin-top: 4px; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .card.history { display: flex; flex-direction: column; gap: 4px; min-width: 320px; }
+  .card.history .meta { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .card.history .text { font-size: 13px; color: #e0e0e0; line-height: 1.45; }
+  .card.dict {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 280px;
+  }
+  .card.dict .k { font-size: 13px; color: #e8e8e8; flex: 1; }
+  .card.snip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 380px;
+  }
+  .card.snip .k { font-size: 13px; color: #e8e8e8; }
+  .card.snip .arrow { color: var(--muted); font-size: 12px; }
+  .card.snip .v { flex: 1; font-size: 12px; color: #b5b5b5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Tabs (replicates the dashboard tab bar) ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 14px 18px 0;
+    border-radius: 8px 8px 0 0;
+    width: 100%;
+  }
+  .tab {
+    padding: 8px 14px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab:hover, .tab.is-hover { color: #b0b0b0; }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+  /* ── Accordion ── */
+  .accordion {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .accordion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+  }
+  .accordion-title {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-size: 16px;
+    color: var(--text);
+  }
+  .accordion-icon { color: var(--muted); transition: transform 0.18s; }
+  .accordion.open { padding-bottom: 12px; }
+  .accordion.open .accordion-icon { transform: rotate(180deg); color: var(--text); }
+  .accordion-body {
+    padding: 0 16px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.18s ease;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .accordion.open .accordion-body { max-height: 200px; padding-bottom: 4px; }
+
+  /* ── Status row used in Polish + Dev sections ── */
+  .ai-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .ai-row .ai-text { flex: 1; min-width: 0; }
+  .ai-row .ai-title { font-size: 13px; color: var(--text); font-weight: 500; }
+  .ai-row .ai-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Mock screens ── */
+  .screens {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 20px;
+  }
+  @media (max-width: 800px) { .screens { grid-template-columns: 1fr; } }
+
+  .screen {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen-window-bar {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+    background: #0e0e0e;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .screen-window-bar .traffic {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .screen-window-bar .traffic.r { background: #ec6b5e; }
+  .screen-window-bar .traffic.y { background: #f5bf4f; }
+  .screen-window-bar .traffic.g { background: #61c554; }
+  .screen-body { padding: 18px 16px; }
+  .screen-body .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .screen .saved {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 10px;
+  }
+  .screen .saved .big { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .screen .saved .faint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .screen .section-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 14px 0 8px;
+  }
+  .screen .label {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-size: 16px;
+    color: var(--text);
+    line-height: 1.25;
+    margin-bottom: 4px;
+  }
+  .screen .desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  /* ── App icon SVG (matches the actual VoiceScribe.icns design) ── */
+  .app-icon {
+    width: 120px;
+    height: 120px;
+    background: #0a0a0a;
+    border-radius: 27px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #1a1a1a;
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--hairline);
+    margin-top: 96px;
+    padding-top: 24px;
+    color: var(--muted);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* Tag pills */
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 100px;
+    margin-right: 6px;
+  }
+  @media (max-width: 720px) {
+    h1 { font-size: 36px; }
+    h2 { font-size: 22px; margin: 56px 0 8px; }
+    main { padding: 56px 20px 80px; }
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc" aria-label="Table of contents">
+  <a href="#palette">Color</a>
+  <a href="#type">Type</a>
+  <a href="#icon">App icon</a>
+  <a href="#pill">Pill states</a>
+  <a href="#buttons">Buttons</a>
+  <a href="#inputs">Inputs</a>
+  <a href="#switch">Toggle</a>
+  <a href="#status">Status dots</a>
+  <a href="#tabs">Tabs</a>
+  <a href="#accordion">Accordion</a>
+  <a href="#cards">Cards</a>
+  <a href="#screens">Screens</a>
+  <a href="#features">Features</a>
+</nav>
+
+<main>
+
+  <!-- ─── HERO ──────────────────────────────────────────── -->
+  <div style="margin-bottom: 14px;">
+    <span class="tag">Design system</span>
+    <span class="tag">macOS app</span>
+    <span class="tag">2026</span>
+  </div>
+  <h1>VoiceScribe — Design System</h1>
+  <p class="lede">Every screen, control, and state in the product. The whole app uses one font family, four colors, and one shape — a 21px-radius rounded rectangle. Below: the primitives, the components, the screens, and the rationale.</p>
+
+  <div class="hairline"></div>
+
+  <!-- ─── COLOR PALETTE ─────────────────────────────────── -->
+  <h2 id="palette">Color</h2>
+  <p>A near-monochrome dark theme. Black background, off-white text, a single accent (the red stop button) that fires only when the app is recording. Green is reserved for live status indicators.</p>
+  <div class="palette">
+    <div class="swatch"><div class="chip" style="background: #0a0a0a"></div><div class="name">Background</div><div class="hex">#0A0A0A</div></div>
+    <div class="swatch"><div class="chip" style="background: #161616"></div><div class="name">Card</div><div class="hex">#161616</div></div>
+    <div class="swatch"><div class="chip" style="background: #1c1c1c"></div><div class="name">Card / form</div><div class="hex">#1C1C1C</div></div>
+    <div class="swatch"><div class="chip" style="background: #262626"></div><div class="name">Border</div><div class="hex">#262626</div></div>
+    <div class="swatch"><div class="chip" style="background: #f0f0f0"></div><div class="name">Text</div><div class="hex">#F0F0F0</div></div>
+    <div class="swatch"><div class="chip" style="background: #7a7a7a"></div><div class="name">Muted</div><div class="hex">#7A7A7A</div></div>
+    <div class="swatch"><div class="chip" style="background: #eb4338"></div><div class="name">Stop button</div><div class="hex">#EB4338</div></div>
+    <div class="swatch"><div class="chip" style="background: #4ade80"></div><div class="name">Live (Polish on)</div><div class="hex">#4ADE80</div></div>
+    <div class="swatch"><div class="chip" style="background: #c33d3d"></div><div class="name">Danger</div><div class="hex">#C33D3D</div></div>
+  </div>
+
+  <!-- ─── TYPOGRAPHY ────────────────────────────────────── -->
+  <h2 id="type">Type</h2>
+  <p>System UI font (<code>SF Pro Display</code> on macOS) for almost everything. Serif (<code>New York</code> / Georgia) appears in exactly one place — the developer-mode headline — to deliberately stand apart from the rest of the UI.</p>
+  <div class="typescale">
+    <div class="row-t"><span class="label">56 / 600</span><span class="specimen" style="font-size:32px; font-weight:600; letter-spacing:-0.03em">Display headline</span></div>
+    <div class="row-t"><span class="label">28 / 600</span><span class="specimen" style="font-size:22px; font-weight:600; letter-spacing:-0.02em">Section title</span></div>
+    <div class="row-t"><span class="label">22 / 600</span><span class="specimen" style="font-size:22px; font-weight:600; letter-spacing:-0.02em">10,212</span></div>
+    <div class="row-t"><span class="label">17 / 600</span><span class="specimen" style="font-size:17px; font-weight:600">Subhead</span></div>
+    <div class="row-t"><span class="label">15 / 400</span><span class="specimen" style="font-size:15px">Body — the same font is used here.</span></div>
+    <div class="row-t"><span class="label">13 / 400</span><span class="specimen" style="font-size:13px">UI text — most of the dashboard.</span></div>
+    <div class="row-t"><span class="label">11 / 600 ↑</span><span class="specimen" style="font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color: var(--muted)">EYEBROW LABEL</span></div>
+    <div class="row-t"><span class="label">22 / serif</span><span class="specimen" style="font-family: ui-serif, 'New York', Georgia, serif; font-size:22px">Speaks your code's language.</span></div>
+    <div class="row-t"><span class="label">12 / mono</span><span class="specimen" style="font-family: 'SF Mono', ui-monospace, monospace; font-size:13px"><code>useState</code> · <code>app.py</code> · <code>git push</code></span></div>
+  </div>
+
+  <!-- ─── APP ICON ──────────────────────────────────────── -->
+  <h2 id="icon">App icon</h2>
+  <p>The icon mirrors the in-product pill: dark rounded square, no chrome, just an audio-reactive waveform of grayscale dots. No literal microphone — the dots <em>are</em> the audio.</p>
+  <div class="row">
+    <div class="display">
+      <div class="app-icon">
+        <svg width="74" height="48" viewBox="0 0 74 48" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#fafafa">
+            <circle cx="3"  cy="24" r="1.6" opacity="0.55"/>
+            <circle cx="9"  cy="24" r="2.0" opacity="0.7"/>
+            <circle cx="15" cy="22" r="2.4" opacity="0.8"/>
+            <circle cx="21" cy="26" r="3.0" opacity="0.9"/>
+            <circle cx="27" cy="20" r="3.4" opacity="0.95"/>
+            <circle cx="33" cy="28" r="3.6"/>
+            <circle cx="39" cy="18" r="3.4" opacity="0.95"/>
+            <circle cx="45" cy="26" r="3.0" opacity="0.9"/>
+            <circle cx="51" cy="22" r="2.6" opacity="0.85"/>
+            <circle cx="57" cy="25" r="2.2" opacity="0.78"/>
+            <circle cx="63" cy="23" r="1.8" opacity="0.7"/>
+            <circle cx="69" cy="24" r="1.6" opacity="0.55"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Canvas</span><span class="v">1024 × 1024</span></li>
+        <li><span class="k">Corner radius</span><span class="v">220 px</span></li>
+        <li><span class="k">Background</span><span class="v">#0A0A0A</span></li>
+        <li><span class="k">Dots</span><span class="v">15, grayscale</span></li>
+        <li><span class="k">Format</span><span class="v">.icns</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── PILL ──────────────────────────────────────────── -->
+  <h2 id="pill">The pill</h2>
+  <p>The only on-screen UI while the app is in use. Four states, one shape. The pill sits 80 px above the dock, never steals focus, and never animates anything that isn't tied to either the audio level or a transition between states.</p>
+
+  <h3>State 1 — Recording</h3>
+  <div class="row">
+    <div class="display" style="background: linear-gradient(180deg, #0c0c0c, #060606);">
+      <div class="pill recording">
+        <div class="dots">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <div class="dot"></div><div class="dot"></div>
+        </div>
+        <div class="stop"></div>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Size</span><span class="v">214 × 44</span></li>
+        <li><span class="k">Radius</span><span class="v">21 px</span></li>
+        <li><span class="k">Fill α</span><span class="v">0.94</span></li>
+        <li><span class="k">Dot count</span><span class="v">22</span></li>
+        <li><span class="k">Stop btn</span><span class="v">22 px ⌀</span></li>
+        <li><span class="k">Frame rate</span><span class="v">30 fps</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>State 2 — Transcribing</h3>
+  <div class="row">
+    <div class="display"><div class="pill status-mode"><div class="status">Transcribing...</div></div></div>
+    <div class="specs">
+      <h4>Behaviour</h4>
+      <ul>
+        <li><span class="k">Trailing dots</span><span class="v">animated</span></li>
+        <li><span class="k">Click target</span><span class="v">none</span></li>
+        <li><span class="k">Triggered by</span><span class="v">stop</span></li>
+        <li><span class="k">Duration</span><span class="v">~ 1–2 s</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>State 3 — Polishing</h3>
+  <div class="row">
+    <div class="display"><div class="pill status-mode"><div class="status">Polishing..</div></div></div>
+    <div class="specs">
+      <h4>Behaviour</h4>
+      <ul>
+        <li><span class="k">Visible when</span><span class="v">AI Polish on</span></li>
+        <li><span class="k">Powered by</span><span class="v">Ollama</span></li>
+        <li><span class="k">Default model</span><span class="v">llama3.2:3b</span></li>
+        <li><span class="k">Duration</span><span class="v">~ 0.5–2 s</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>State 4 — No words detected</h3>
+  <div class="row">
+    <div class="display"><div class="pill status-mode"><div class="status">No words detected</div></div></div>
+    <div class="specs">
+      <h4>Behaviour</h4>
+      <ul>
+        <li><span class="k">Static text</span><span class="v">no animation</span></li>
+        <li><span class="k">Auto-close</span><span class="v">1.4 s</span></li>
+        <li><span class="k">Triggered by</span><span class="v">empty Whisper out</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── BUTTONS ──────────────────────────────────────── -->
+  <h2 id="buttons">Buttons</h2>
+  <p>Two button styles: a primary (white-on-dark, used only for "save" type actions like adding a dictionary word), and an icon button (used everywhere else, including history copy/delete and menu actions).</p>
+
+  <h3>Primary</h3>
+  <div class="row">
+    <div class="display">
+      <button class="btn">Add word</button>
+      <button class="btn">Add snippet</button>
+      <button class="btn disabled">Disabled</button>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Background</span><span class="v">#EEEEEE</span></li>
+        <li><span class="k">Hover</span><span class="v">#FFFFFF</span></li>
+        <li><span class="k">Text</span><span class="v">#0D0D0D</span></li>
+        <li><span class="k">Radius</span><span class="v">8 px</span></li>
+        <li><span class="k">Padding</span><span class="v">8 × 14</span></li>
+        <li><span class="k">Disabled α</span><span class="v">0.4</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Icon button</h3>
+  <div class="row">
+    <div class="display">
+      <button class="iconbtn">Copy</button>
+      <button class="iconbtn is-hover">Copy</button>
+      <button class="iconbtn danger">Delete</button>
+      <button class="iconbtn danger is-hover">Delete</button>
+    </div>
+    <div class="specs">
+      <h4>States</h4>
+      <ul>
+        <li><span class="k">Default</span><span class="v">#7A7A7A</span></li>
+        <li><span class="k">Hover</span><span class="v">#F0F0F0 / #252525</span></li>
+        <li><span class="k">Danger hover</span><span class="v">#FF8080</span></li>
+        <li><span class="k">Background</span><span class="v">transparent</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Stop button (pill only)</h3>
+  <div class="row">
+    <div class="display">
+      <div class="stop" style="width:32px; height:32px; border-radius:50%; background:var(--pill-red); display:flex; align-items:center; justify-content:center;">
+        <div style="width:10px; height:10px; background:#fff;"></div>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Diameter</span><span class="v">22 px (in pill)</span></li>
+        <li><span class="k">Glyph</span><span class="v">7 × 7 sq</span></li>
+        <li><span class="k">Color</span><span class="v">#EB4338</span></li>
+        <li><span class="k">Hover α</span><span class="v">0.92 → 1.0</span></li>
+        <li><span class="k">Hit area</span><span class="v">34 px wide</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── INPUTS ───────────────────────────────────────── -->
+  <h2 id="inputs">Inputs</h2>
+  <p>Four input types: text, number, textarea, and select. All share the same border, radius, and focus treatment.</p>
+  <div class="row">
+    <div class="display" style="flex-direction:column; align-items:flex-start; gap:14px;">
+      <div class="field">
+        <label>TEXT</label>
+        <input class="input" placeholder="e.g. FigJam, Samir, Lyft" value="">
+      </div>
+      <div class="field">
+        <label>FOCUSED</label>
+        <input class="input is-focus" value="useState">
+      </div>
+      <div class="field">
+        <label>NUMBER</label>
+        <input class="input" type="number" value="40" style="max-width:90px; text-align:right;">
+      </div>
+      <div class="field">
+        <label>TEXTAREA</label>
+        <textarea class="textarea" placeholder="Hi there,&#10;&#10;Thanks for reaching out…">Hi there,&#10;&#10;Thanks for reaching out about the role…</textarea>
+      </div>
+      <div class="field">
+        <label>SELECT</label>
+        <select class="select">
+          <option>llama3.2:3b</option>
+          <option>qwen2.5:3b</option>
+          <option>phi3.5:3.8b</option>
+        </select>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Background</span><span class="v">#161616</span></li>
+        <li><span class="k">Border</span><span class="v">#262626</span></li>
+        <li><span class="k">Focus border</span><span class="v">#444444</span></li>
+        <li><span class="k">Radius</span><span class="v">8 px</span></li>
+        <li><span class="k">Padding</span><span class="v">8 × 10</span></li>
+        <li><span class="k">Font</span><span class="v">SF Pro 13</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── TOGGLE ────────────────────────────────────────── -->
+  <h2 id="switch">Toggle switch</h2>
+  <p>iOS-style toggle. Off = neutral gray (the user took no action). On = green, the same green used for the live status dot — visually linking "this is enabled" with "this is running."</p>
+  <div class="row">
+    <div class="display" style="gap: 24px;">
+      <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Track</span><span class="v">36 × 20</span></li>
+        <li><span class="k">Thumb</span><span class="v">14 × 14</span></li>
+        <li><span class="k">Off bg</span><span class="v">#333333</span></li>
+        <li><span class="k">On bg</span><span class="v">#4ADE80</span></li>
+        <li><span class="k">Anim</span><span class="v">180 ms ease</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── STATUS DOTS ──────────────────────────────────── -->
+  <h2 id="status">Status dots</h2>
+  <p>Used in the AI Polish row to surface Ollama status at a glance — without a label, just by the color and halo. Live = active and green-haloed. Idle = configured but off. Warn = installed but no model. Offline = Ollama not running.</p>
+  <div class="row">
+    <div class="display" style="gap: 32px;">
+      <div style="display:flex; align-items:center; gap:8px;"><span class="ai-dot live"></span><small style="color:var(--muted)">Live</small></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span class="ai-dot idle"></span><small style="color:var(--muted)">Idle</small></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span class="ai-dot warn"></span><small style="color:var(--muted)">Warn</small></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span class="ai-dot offline"></span><small style="color:var(--muted)">Offline</small></div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Size</span><span class="v">8 px ⌀</span></li>
+        <li><span class="k">Live halo</span><span class="v">3 px @ 18% α</span></li>
+        <li><span class="k">Live</span><span class="v">#4ADE80</span></li>
+        <li><span class="k">Idle</span><span class="v">#6A6A6A</span></li>
+        <li><span class="k">Warn</span><span class="v">#E6B800</span></li>
+        <li><span class="k">Offline</span><span class="v">#6A3A3A</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── TABS ─────────────────────────────────────────── -->
+  <h2 id="tabs">Tabs</h2>
+  <p>Eyebrow-style tabs at the top of the dashboard. Active state is a single underline in body-text color — no pills, no shifting, no chrome.</p>
+  <div class="row">
+    <div class="display" style="padding: 0;">
+      <div class="tabs">
+        <div class="tab active">Home</div>
+        <div class="tab">History</div>
+        <div class="tab is-hover">Dictionary</div>
+        <div class="tab">Snippets</div>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Idle</span><span class="v">#7A7A7A</span></li>
+        <li><span class="k">Hover</span><span class="v">#B0B0B0</span></li>
+        <li><span class="k">Active</span><span class="v">#F0F0F0</span></li>
+        <li><span class="k">Underline</span><span class="v">2 px</span></li>
+        <li><span class="k">Tracking</span><span class="v">0.06 em</span></li>
+        <li><span class="k">Case</span><span class="v">UPPER</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── ACCORDION ────────────────────────────────────── -->
+  <h2 id="accordion">Accordion</h2>
+  <p>Used in the developer-features section. Serif title (deliberately quieter than UI font), 12 px caret, a collapse animation that doesn't move the page below it.</p>
+  <div class="row">
+    <div class="display" style="flex-direction:column; gap: 12px;">
+      <div class="accordion">
+        <div class="accordion-header"><span class="accordion-title">Filenames</span><span class="accordion-icon">▾</span></div>
+      </div>
+      <div class="accordion open">
+        <div class="accordion-header"><span class="accordion-title">Identifiers &amp; commands</span><span class="accordion-icon">▾</span></div>
+        <div class="accordion-body">Hooks, methods, and shell commands keep their casing — <code>useState</code>, <code>setCount</code>, <code>git push origin main</code>.</div>
+      </div>
+      <div class="accordion">
+        <div class="accordion-header"><span class="accordion-title">Acronyms &amp; tools</span><span class="accordion-icon">▾</span></div>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Spec</h4>
+      <ul>
+        <li><span class="k">Title font</span><span class="v">serif 16</span></li>
+        <li><span class="k">Caret</span><span class="v">▾ rotate 180°</span></li>
+        <li><span class="k">Anim</span><span class="v">180 ms</span></li>
+        <li><span class="k">Body</span><span class="v">12 / 1.55</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── CARDS ────────────────────────────────────────── -->
+  <h2 id="cards">Cards</h2>
+  <p>Four card variants — stat, history, dictionary, snippet — share the same chassis: <code>#161616</code> on <code>#262626</code> border, 10 px radius, 14 px padding. Layout differs by content.</p>
+
+  <h3>Stat card</h3>
+  <div class="row">
+    <div class="display" style="gap: 12px;">
+      <div class="card stat" style="min-width:160px"><div class="num">10,212</div><div class="lbl">Words</div></div>
+      <div class="card stat" style="min-width:160px"><div class="num">315</div><div class="lbl">Sessions</div></div>
+      <div class="card stat" style="min-width:160px"><div class="num">1h 35m</div><div class="lbl">Recorded</div></div>
+      <div class="card stat" style="min-width:160px"><div class="num">107.1</div><div class="lbl">Avg WPM</div></div>
+    </div>
+    <div class="specs">
+      <h4>Anatomy</h4>
+      <ul>
+        <li><span class="k">Number</span><span class="v">22 / 600</span></li>
+        <li><span class="k">Label</span><span class="v">10 / 0.06 em UP</span></li>
+        <li><span class="k">Padding</span><span class="v">12 × 14</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>History card</h3>
+  <div class="row">
+    <div class="display">
+      <div class="card history">
+        <div class="meta">
+          <span>APR 27 · 14:32 · 18 words · 6s</span>
+          <div style="display:flex; gap:6px;">
+            <button class="iconbtn">Copy</button>
+            <button class="iconbtn danger">Delete</button>
+          </div>
+        </div>
+        <div class="text">Let's use <code>useState</code> for the counter and call <code>setCount</code> when it changes.</div>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Anatomy</h4>
+      <ul>
+        <li><span class="k">Meta</span><span class="v">10 px UP</span></li>
+        <li><span class="k">Text</span><span class="v">13 / 1.45</span></li>
+        <li><span class="k">Selectable</span><span class="v">yes</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Dictionary &amp; snippet</h3>
+  <div class="row">
+    <div class="display" style="flex-direction:column; gap:8px; align-items:flex-start;">
+      <div class="card dict">
+        <span class="k">Kalaan</span>
+        <button class="iconbtn danger">Remove</button>
+      </div>
+      <div class="card dict">
+        <span class="k">PostgreSQL</span>
+        <button class="iconbtn danger">Remove</button>
+      </div>
+      <div class="card snip">
+        <span class="k">"intro email"</span>
+        <span class="arrow">→</span>
+        <span class="v">Hi there, thanks for reaching out about the role…</span>
+        <button class="iconbtn danger">Remove</button>
+      </div>
+    </div>
+    <div class="specs">
+      <h4>Behaviour</h4>
+      <ul>
+        <li><span class="k">Dict bias</span><span class="v">Whisper init</span></li>
+        <li><span class="k">Snippet</span><span class="v">trigger ↔ expansion</span></li>
+        <li><span class="k">Match</span><span class="v">case-insensitive</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── SCREENS ──────────────────────────────────────── -->
+  <h2 id="screens">Screens</h2>
+  <p>The dashboard is the only window. Four tabs, one viewport, no nested navigation. Below: a mock of each tab.</p>
+
+  <div class="screens">
+
+    <!-- Home -->
+    <div class="screen">
+      <div class="screen-window-bar">
+        <span class="traffic r"></span><span class="traffic y"></span><span class="traffic g"></span>
+      </div>
+      <div class="tabs"><div class="tab active">Home</div><div class="tab">History</div><div class="tab">Dictionary</div><div class="tab">Snippets</div></div>
+      <div class="screen-body">
+        <div class="grid">
+          <div class="card stat"><div class="num">10,212</div><div class="lbl">Words</div></div>
+          <div class="card stat"><div class="num">315</div><div class="lbl">Sessions</div></div>
+          <div class="card stat"><div class="num">1h 35m</div><div class="lbl">Recorded</div></div>
+          <div class="card stat"><div class="num">107.1</div><div class="lbl">Avg WPM</div></div>
+        </div>
+
+        <div class="section-title">AI Polish</div>
+        <div class="ai-row">
+          <span class="ai-dot live"></span>
+          <div class="ai-text"><div class="ai-title">Polish with local AI</div><div class="ai-sub">Cleans fillers, fixes grammar.</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+        </div>
+
+        <div class="section-title">Built for code</div>
+        <div class="label">Speaks your code's language.</div>
+        <div class="desc">Kicks in automatically when it hears a filename, hook, or command.</div>
+        <div class="accordion">
+          <div class="accordion-header"><span class="accordion-title">Filenames</span><span class="accordion-icon">▾</span></div>
+        </div>
+
+        <div class="section-title">Time saved</div>
+        <div class="saved">
+          <div class="big">45m 27s</div>
+          <div class="faint">saved this week</div>
+          <div class="faint">All-time: 2h 39m</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="screen">
+      <div class="screen-window-bar">
+        <span class="traffic r"></span><span class="traffic y"></span><span class="traffic g"></span>
+      </div>
+      <div class="tabs"><div class="tab">Home</div><div class="tab active">History</div><div class="tab">Dictionary</div><div class="tab">Snippets</div></div>
+      <div class="screen-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div class="card history">
+          <div class="meta"><span>APR 27 · 22:08 · 14 w · 5s</span><div style="display:flex; gap:6px;"><button class="iconbtn">Copy</button><button class="iconbtn danger">Delete</button></div></div>
+          <div class="text">Let's use <code>useState</code> for the counter and call <code>setCount</code> when it changes.</div>
+        </div>
+        <div class="card history">
+          <div class="meta"><span>APR 27 · 18:42 · 22 w · 8s</span><div style="display:flex; gap:6px;"><button class="iconbtn">Copy</button><button class="iconbtn danger">Delete</button></div></div>
+          <div class="text">The API is returning a 500 error from the PostgreSQL database. We should probably look at the connection pool first.</div>
+        </div>
+        <div class="card history">
+          <div class="meta"><span>APR 27 · 17:01 · 9 w · 4s</span><div style="display:flex; gap:6px;"><button class="iconbtn">Copy</button><button class="iconbtn danger">Delete</button></div></div>
+          <div class="text">Can you open <code>app.py</code> and check the polish function?</div>
+        </div>
+        <div class="card history">
+          <div class="meta"><span>APR 26 · 11:30 · 31 w · 12s</span><div style="display:flex; gap:6px;"><button class="iconbtn">Copy</button><button class="iconbtn danger">Delete</button></div></div>
+          <div class="text">Hi there, thanks for reaching out about the design role. I'd love to set up a 30-minute chat next week to walk through my portfolio.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dictionary -->
+    <div class="screen">
+      <div class="screen-window-bar">
+        <span class="traffic r"></span><span class="traffic y"></span><span class="traffic g"></span>
+      </div>
+      <div class="tabs"><div class="tab">Home</div><div class="tab">History</div><div class="tab active">Dictionary</div><div class="tab">Snippets</div></div>
+      <div class="screen-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="color:var(--muted); font-size:11px; line-height:1.5; margin-bottom:6px">
+          Words and names Whisper should recognise. Add proper nouns, company terms, or jargon — they'll be biased into every transcription.
+        </div>
+        <div style="background: var(--card2); border: 1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <input class="input" placeholder="e.g. FigJam, Samir, Lyft">
+          <button class="btn" style="align-self:flex-start;">Add word</button>
+        </div>
+        <div class="card dict"><span class="k">Kalaan</span><button class="iconbtn danger">Remove</button></div>
+        <div class="card dict"><span class="k">PostgreSQL</span><button class="iconbtn danger">Remove</button></div>
+        <div class="card dict"><span class="k">VoiceScribe</span><button class="iconbtn danger">Remove</button></div>
+        <div class="card dict"><span class="k">useEffect</span><button class="iconbtn danger">Remove</button></div>
+      </div>
+    </div>
+
+    <!-- Snippets -->
+    <div class="screen">
+      <div class="screen-window-bar">
+        <span class="traffic r"></span><span class="traffic y"></span><span class="traffic g"></span>
+      </div>
+      <div class="tabs"><div class="tab">Home</div><div class="tab">History</div><div class="tab">Dictionary</div><div class="tab active">Snippets</div></div>
+      <div class="screen-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="color:var(--muted); font-size:11px; line-height:1.5; margin-bottom:6px">
+          Say the trigger phrase during a recording — it'll be replaced with the expansion on paste. Case-insensitive.
+        </div>
+        <div style="background: var(--card2); border: 1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <input class="input" placeholder="Trigger (e.g. intro email)">
+          <textarea class="textarea" placeholder="Expansion text…"></textarea>
+          <button class="btn" style="align-self:flex-start;">Add snippet</button>
+        </div>
+        <div class="card snip"><span class="k">"intro email"</span><span class="arrow">→</span><span class="v">Hi there, thanks for reaching out…</span><button class="iconbtn danger">Remove</button></div>
+        <div class="card snip"><span class="k">"sign off"</span><span class="arrow">→</span><span class="v">Best, Kalaan</span><button class="iconbtn danger">Remove</button></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── FEATURES (annotated) ─────────────────────────── -->
+  <h2 id="features">Features &amp; flows</h2>
+
+  <h3>1 · The hotkey</h3>
+  <p>Double-tap <code>Fn</code> within 400 ms to toggle recording. The 400 ms window is short enough to never collide with a single accidental Fn press, and long enough that intentional double-taps don't fail. Works regardless of which app is focused — VoiceScribe never claims keyboard focus itself.</p>
+
+  <h3>2 · Auto-paste</h3>
+  <p>When transcription finishes, the cleaned text is copied to the system clipboard, then a native helper binary (<code>paste_helper</code>, signed with the app's bundle identifier) sends a <code>Cmd+V</code>. The helper lives inside <code>VoiceScribe.app/Contents/MacOS/</code> so macOS attributes the keystroke to the app — not to Python — making the Accessibility grant survive OS updates.</p>
+
+  <h3>3 · AI Polish</h3>
+  <p>Optional. When enabled, the raw Whisper output is sent to a local Ollama model (default <code>llama3.2:3b</code>) with a strict cleaning prompt and 6 few-shot examples. Three guardrails detect failure: chatbot drift ("I'm ready to help…"), over-summarization (output drops &gt;55% of input), and word loss (&gt;30% of input's content words missing). Any of those → fall back to the raw transcript.</p>
+
+  <h3>4 · Auto dev-mode</h3>
+  <p>The polisher scans every transcript for ~70 dev markers — file extensions said as "dot py", React hooks, <code>git</code> commands, package managers, databases, frameworks. If any fire, it routes to the developer-aware prompt. No setting, no toggle. The model converts <em>"app dot py"</em> → <code>app.py</code>, <em>"use state"</em> → <code>useState</code>, and wraps inline code in backticks.</p>
+
+  <h3>5 · Custom dictionary</h3>
+  <p>User-added words (proper nouns, company terms, jargon) are joined into a comma-separated string and passed as Whisper's <code>initial_prompt</code> parameter. This biases the acoustic model toward those specific tokens, so brand and people names come through correctly without post-processing.</p>
+
+  <h3>6 · Snippets</h3>
+  <p>Trigger-phrase expansions, applied after polish but before paste. "intro email" → a full templated message. Match is whole-phrase, case-insensitive, longest-trigger-first so "intro email" beats "intro".</p>
+
+  <h3>7 · Permission flow</h3>
+  <p>On launch, the app checks <code>AXIsProcessTrustedWithOptions</code> with <code>kAXTrustedCheckOptionPrompt=true</code>, which triggers macOS's native Accessibility prompt if not yet granted. A second check uses <code>AVCaptureDevice.authorizationStatusForMediaType</code> for microphone. Both paths open the relevant System Settings pane on miss, with a <code>rumps.notification</code> explaining what's needed.</p>
+
+  <!-- ─── FOOTER ───────────────────────────────────────── -->
+  <footer>
+    <div><a href="index.html" style="color: var(--text); text-decoration: underline; text-underline-offset: 3px;">← Back to case study</a></div>
+    <div>VoiceScribe — design system, 2026</div>
+  </footer>
+
+</main>
+</body>
+</html>
