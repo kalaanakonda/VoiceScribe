@@ -16,7 +16,7 @@ from WebKit import (
     WKWebsiteDataStore,
 )
 
-from voicescribe import stats
+from voicescribe import stats, polisher
 
 
 WIN_W = 380.0
@@ -55,6 +55,25 @@ class _Bridge(NSObject):
                 stats.add_snippet(body.get("trigger", ""), body.get("expansion", ""))
             elif mtype == "removeSnippet":
                 stats.remove_snippet(body.get("trigger", ""))
+            elif mtype == "setPolish":
+                en = body.get("enabled")
+                md = body.get("model")
+                # Log what we received so we can diagnose the toggle bug
+                try:
+                    with open("/tmp/voicescribe_debug.log", "a") as f:
+                        import time as _t
+                        f.write(f"{_t.strftime('%H:%M:%S')} [dashboard] setPolish received enabled={en!r} model={md!r}\n")
+                except Exception:
+                    pass
+                stats.set_polish(enabled=en, model=md)
+                # Log what's saved after
+                try:
+                    saved = stats.get_polish()
+                    with open("/tmp/voicescribe_debug.log", "a") as f:
+                        import time as _t
+                        f.write(f"{_t.strftime('%H:%M:%S')} [dashboard] setPolish saved -> {saved}\n")
+                except Exception:
+                    pass
             self._controller.push_stats()
         except Exception as e:
             print(f"[dashboard] bridge error: {e}", flush=True)
@@ -134,8 +153,28 @@ class DashboardWindow:
     def push_stats(self):
         if self._webview is None:
             return
-        payload = json.dumps(stats.get_summary())
-        # Escape for JS string literal
+        summary = stats.get_summary()
+
+        # Augment with AI-polish state — runs Ollama HTTP probe (~2s timeout).
+        polish_settings = stats.get_polish()
+        ollama_models = polisher.list_models()
+        ollama_up = bool(ollama_models) or polisher.is_available()
+
+        # Auto-pick a default model the first time we detect Ollama
+        chosen_model = polish_settings["model"]
+        if ollama_models and chosen_model not in ollama_models:
+            chosen_model = polisher.suggest_default_model(ollama_models)
+            if chosen_model:
+                stats.set_polish(model=chosen_model)
+
+        summary["polish"] = {
+            "enabled": polish_settings["enabled"],
+            "model": chosen_model,
+            "ollama_up": ollama_up,
+            "models": ollama_models,
+        }
+
+        payload = json.dumps(summary)
         js = f"window.vsUpdate && window.vsUpdate({json.dumps(payload)});"
         self._webview.evaluateJavaScript_completionHandler_(js, None)
 

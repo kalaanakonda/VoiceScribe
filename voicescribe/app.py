@@ -261,40 +261,83 @@ class VoiceScribeApp(rumps.App):
         self.title = "⌛"
         self.record_btn.title = "Start Recording"
         self.status_item.title = "Transcribing..."
-        self.overlay.hide()
+        # Keep the pill visible — switch to status-label mode so the user sees
+        # progress (Transcribing → Polishing → result) without it disappearing.
+        self.overlay.set_status("Transcribing", animate=True)
         threading.Thread(target=self._process, daemon=True).start()
+
+    def _flash_pill(self, message, hide_after=1.4):
+        """Show a final status message on the pill, then auto-hide.
+
+        Used for terminal states like 'No words detected' — the pill lingers
+        long enough for the user to read it, then closes itself.
+        """
+        from PyObjCTools import AppHelper
+        AppHelper.callAfter(self.overlay.set_status, message, False)
+        threading.Timer(
+            hide_after,
+            lambda: AppHelper.callAfter(self.overlay.hide),
+        ).start()
 
     def _process(self):
         try:
+            from PyObjCTools import AppHelper
+
             duration = max(0.0, time.time() - self._record_started_at)
             audio = self.recorder.stop()
             if len(audio) == 0:
                 self.title = "\U0001f3a4"
                 self.status_item.title = "Ready"
+                self._flash_pill("No words detected")
                 return
 
             # Bias transcription toward user's custom vocabulary
             prompt = stats.dictionary_prompt()
             text = self.transcriber.transcribe(audio, initial_prompt=prompt)
-            if self.clean_toggle.state:
+            _log(f"[transcribe] raw: '{text}'")
+
+            # AI polish via Ollama — replaces rule-based filler removal when enabled
+            polish_settings = stats.get_polish()
+            polished = False
+            if polish_settings["enabled"] and polish_settings["model"] and text.strip():
+                self.status_item.title = "Polishing..."
+                AppHelper.callAfter(self.overlay.set_status, "Polishing", True)
+                from voicescribe import polisher
+                cleaned = polisher.polish(text, polish_settings["model"])
+                if cleaned:
+                    text = cleaned
+                    polished = True
+                    _log(f"[polish] applied via {polish_settings['model']}: '{text}'")
+                else:
+                    _log("[polish] failed, falling back to rule-based clean")
+
+            # Rule-based filler removal (only if polish didn't happen)
+            if not polished and self.clean_toggle.state:
                 text = clean(text)
+
             # Snippet expansion (e.g. "intro email" → template)
             text = stats.apply_snippets(text)
 
-            _log(f"[transcribe] result: '{text}'")
-
-            if text:
-                self._auto_paste(text)
+            _log(f"[transcribe] final: '{text}'")
 
             self.title = "\U0001f3a4"
             word_count = len(text.split()) if text else 0
+
+            if not text or word_count == 0:
+                # Whisper returned nothing (silence / unintelligible audio)
+                self.status_item.title = "No words detected"
+                self._flash_pill("No words detected")
+                return
+
+            # Got text — paste and close the pill
+            self._auto_paste(text)
+            AppHelper.callAfter(self.overlay.hide)
             self.status_item.title = f"Last: {word_count} words"
 
             # Persist session stats + refresh dashboard if open
-            if word_count > 0 and duration > 0:
+            if duration > 0:
                 stats.record_session(word_count, duration, text)
                 try:
-                    from PyObjCTools import AppHelper
                     AppHelper.callAfter(self.dashboard.push_stats)
                 except Exception:
                     pass
@@ -303,6 +346,7 @@ class VoiceScribeApp(rumps.App):
             _log(f"[process] error: {e}")
             self.title = "\U0001f3a4"
             self.status_item.title = f"Error: {str(e)[:40]}"
+            self._flash_pill("Error")
 
     def _auto_paste(self, text):
         """Copy to clipboard and simulate Cmd+V.

@@ -9,6 +9,8 @@ from AppKit import (
     NSTimer, NSGraphicsContext,
     NSBorderlessWindowMask, NSBackingStoreBuffered,
     NSNonactivatingPanelMask,
+    NSAttributedString, NSFont,
+    NSForegroundColorAttributeName, NSFontAttributeName,
 )
 from Foundation import NSMakeRect, NSMakePoint
 import Quartz
@@ -32,7 +34,21 @@ class PillView(NSView):
         self._start = time.time()
         self._timer = None
         self._stop_hover = False
+        # Status mode: when set to a string, the pill renders a status label
+        # ("Transcribing", "Polishing", "No words detected") instead of the
+        # live waveform. None = recording mode (default).
+        self._status_text = None
+        self._status_animate = False
+        self._status_started = 0.0
         return self
+
+    @objc.python_method
+    def setStatus(self, text, animate=False):
+        """Switch to status-label mode. Pass None to return to waveform mode."""
+        self._status_text = text
+        self._status_animate = bool(animate)
+        self._status_started = time.time()
+        self.setNeedsDisplay_(True)
 
     @objc.python_method
     def startTimer(self):
@@ -53,6 +69,9 @@ class PillView(NSView):
         return True
 
     def mouseDown_(self, event):
+        # Status mode (transcribing/polishing/etc.) — ignore clicks
+        if self._status_text is not None:
+            return
         loc = self.convertPoint_fromView_(event.locationInWindow(), None)
         bounds = self.bounds()
         stop_x = bounds.size.width - STOP_BTN_W
@@ -85,16 +104,12 @@ class PillView(NSView):
         bounds = self.bounds()
         w = bounds.size.width
         h = bounds.size.height
-
-        level = float(getattr(self._recorder, "level", 0.0))
-        self._phase += 0.15
-
         cs = Quartz.CGColorSpaceCreateDeviceRGB()
 
         # Clear (transparent window)
         Quartz.CGContextClearRect(ctx, bounds)
 
-        # ── Rounded rect pill background (grayscale, pill-shaped) ──
+        # ── Rounded rect pill background ──
         inset = 1.0
         rect = Quartz.CGRectMake(inset, inset, w - 2 * inset, h - 2 * inset)
         radius = (h - 2 * inset) / 2.0
@@ -122,13 +137,22 @@ class PillView(NSView):
         Quartz.CGContextStrokePath(ctx)
         Quartz.CGContextRestoreGState(ctx)
 
-        # ── Waveform dots (grayscale, centred, tight) ──
-        # Dots occupy [margin, w - STOP_BTN_W], stop button lives in [w - STOP_BTN_W, w - margin]
+        # Branch on mode: status label vs live waveform
+        if self._status_text is not None:
+            self._draw_status(ctx, w, h, cs)
+        else:
+            self._phase += 0.15
+            self._draw_waveform(ctx, w, h, cs)
+            self._draw_stop_button(ctx, w, h, cs)
+
+    @objc.python_method
+    def _draw_waveform(self, ctx, w, h, cs):
+        level = float(getattr(self._recorder, "level", 0.0))
         cy = h / 2.0
         margin = 14.0
         dots_right = w - STOP_BTN_W
         total_w = dots_right - margin
-        max_amp = (h / 2.0) - 6.0  # keep dots inside the pill
+        max_amp = (h / 2.0) - 6.0
 
         for i in range(DOT_COUNT):
             t = i / (DOT_COUNT - 1)
@@ -138,13 +162,10 @@ class PillView(NSView):
             wave2 = math.sin(t * math.pi * 2.0 - self._phase * 0.6) * level * 0.6
             wave3 = math.sin(t * math.pi * 4.5 + self._phase * 1.3) * level * 0.25
             wave = wave1 + wave2 + wave3
-
             y = cy + wave * max_amp
 
-            # Pure grayscale, brightness driven by amplitude
             v = 0.55 + abs(wave) * 0.45
             v = max(0.0, min(1.0, v))
-
             dot_r = 1.6 + abs(wave) * 1.8
 
             Quartz.CGContextSaveGState(ctx)
@@ -156,12 +177,12 @@ class PillView(NSView):
             )
             Quartz.CGContextRestoreGState(ctx)
 
-        # ── Stop button (right side of the pill) ──
+    @objc.python_method
+    def _draw_stop_button(self, ctx, w, h, cs):
         btn_cx = w - STOP_BTN_W / 2.0 - 4.0
         btn_cy = h / 2.0
-
-        # Red circle background for stop button
         circle_r = 11.0
+
         Quartz.CGContextSaveGState(ctx)
         red_alpha = 1.0 if self._stop_hover else 0.92
         Quartz.CGContextSetFillColorWithColor(
@@ -172,7 +193,6 @@ class PillView(NSView):
         )
         Quartz.CGContextRestoreGState(ctx)
 
-        # White stop square centered on circle
         sq = 7.0
         Quartz.CGContextSaveGState(ctx)
         Quartz.CGContextSetFillColorWithColor(
@@ -182,6 +202,32 @@ class PillView(NSView):
             ctx, Quartz.CGRectMake(btn_cx - sq / 2.0, btn_cy - sq / 2.0, sq, sq)
         )
         Quartz.CGContextRestoreGState(ctx)
+
+    @objc.python_method
+    def _draw_status(self, ctx, w, h, cs):
+        """Draw a centered status label (e.g. 'Transcribing...', 'Polishing...',
+        'No words detected'). When `_status_animate` is set, three loading
+        dots cycle next to the label."""
+        text = self._status_text or ""
+
+        # Build label + animated trailing dots if requested
+        if self._status_animate:
+            n_dots = int((time.time() - self._status_started) * 2.5) % 4
+            text = text + "." * n_dots
+
+        # Render text via NSAttributedString — drawing into the focused
+        # NSGraphicsContext (which is current during drawRect_).
+        white = NSColor.colorWithCalibratedWhite_alpha_(0.92, 1.0)
+        font = NSFont.systemFontOfSize_(13.0)
+        attrs = {
+            NSFontAttributeName: font,
+            NSForegroundColorAttributeName: white,
+        }
+        astr = NSAttributedString.alloc().initWithString_attributes_(text, attrs)
+        size = astr.size()
+        x = (w - size.width) / 2.0
+        y = (h - size.height) / 2.0 - 1.0  # tiny optical adjust
+        astr.drawAtPoint_(NSMakePoint(x, y))
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -218,8 +264,8 @@ class WaveformOverlay:
         screen = NSScreen.mainScreen()
         sf = screen.frame()
         x = sf.origin.x + (sf.size.width - WINDOW_W) / 2.0
-        # Place near top of screen (below menu bar)
-        y = sf.origin.y + sf.size.height - WINDOW_H - 80.0
+        # Place near bottom of screen (above the Dock)
+        y = sf.origin.y + 80.0
         win_rect = NSMakeRect(x, y, WINDOW_W, WINDOW_H)
 
         # NSPanel with NSNonactivatingPanelMask: accepts clicks without ever
@@ -269,6 +315,13 @@ class WaveformOverlay:
         self._window.orderOut_(None)
         self._window = None
         self._view = None
+
+    def set_status(self, text, animate=True):
+        """Switch the visible pill into status-label mode. No-op if hidden.
+        Pass None to switch back to live waveform mode."""
+        if self._view is None:
+            return
+        self._view.setStatus(text, animate)
 
     @property
     def visible(self):

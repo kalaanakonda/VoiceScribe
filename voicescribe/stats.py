@@ -19,6 +19,8 @@ def _default():
         "sessions": [],        # list of {id, ts, words, duration, text}
         "dictionary": [],      # list of strings (custom vocab)
         "snippets": [],        # list of {trigger, expansion}
+        "polish_enabled": False,  # AI polish via Ollama
+        "polish_model": None,     # selected Ollama model name
     }
 
 
@@ -75,6 +77,23 @@ def delete_session(session_id: int):
 def set_typing_wpm(wpm: int):
     data = _load()
     data["typing_wpm"] = max(1, int(wpm))
+    _save(data)
+
+
+def get_polish():
+    data = _load()
+    return {
+        "enabled": bool(data.get("polish_enabled", False)),
+        "model": data.get("polish_model"),
+    }
+
+
+def set_polish(enabled: bool = None, model: str = None):
+    data = _load()
+    if enabled is not None:
+        data["polish_enabled"] = bool(enabled)
+    if model is not None:
+        data["polish_model"] = model or None
     _save(data)
 
 

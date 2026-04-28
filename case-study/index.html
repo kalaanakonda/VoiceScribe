@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceScribe — Case Study</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #fafafa;
+    --dim: #888;
+    --line: #1f1f1f;
+    --accent: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body { padding: 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 96px 32px 160px; }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  /* Type system */
+  h1 { font-size: 56px; font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 24px; }
+  h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; margin: 96px 0 24px; }
+  h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.005em; margin: 40px 0 12px; }
+  h4 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 16px; }
+  p { font-size: 17px; color: #d4d4d4; margin-bottom: 20px; }
+  p.lede { font-size: 22px; color: #e5e5e5; line-height: 1.45; max-width: 620px; }
+  small, .meta { font-size: 13px; color: var(--dim); letter-spacing: 0.02em; }
+  a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  code {
+    font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    font-size: 14px;
+    background: var(--line);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  pre code { display: block; padding: 16px; overflow-x: auto; line-height: 1.5; }
+
+  /* Layout primitives */
+  .hairline { border-top: 1px solid var(--line); margin: 96px 0; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .meta-row { display: flex; gap: 32px; margin-bottom: 64px; flex-wrap: wrap; }
+  .meta-row > div h4 { margin-bottom: 4px; }
+  .meta-row > div p { margin-bottom: 0; font-size: 14px; color: var(--fg); }
+
+  /* Decision card */
+  .decision {
+    border-top: 1px solid var(--line);
+    padding: 32px 0;
+  }
+  .decision:last-of-type { border-bottom: 1px solid var(--line); }
+  .decision .num {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .decision h3 { margin-top: 0; }
+  .decision .why {
+    font-size: 15px;
+    color: var(--dim);
+    margin-top: 16px;
+    border-left: 1px solid var(--line);
+    padding-left: 16px;
+  }
+
+  /* Stats row */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 32px 0;
+  }
+  .stat {
+    background: var(--bg);
+    padding: 24px;
+  }
+  .stat .num {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat .label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* SVG containers */
+  figure {
+    margin: 32px 0;
+    padding: 32px;
+    background: #050505;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  figure svg { display: block; margin: 0 auto; max-width: 100%; }
+  figcaption {
+    font-size: 12px;
+    color: var(--dim);
+    text-align: center;
+    margin-top: 24px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Pill mock */
+  .pill-mock {
+    display: flex;
+    align-items: center;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 22px;
+    padding: 0 6px 0 14px;
+    height: 44px;
+    width: 214px;
+    margin: 32px auto;
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.5);
+  }
+
+  /* Tag */
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 100px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+
+  /* Quote */
+  blockquote {
+    border-left: 2px solid var(--fg);
+    padding-left: 20px;
+    margin: 32px 0;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--fg);
+  }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 128px;
+    padding-top: 32px;
+    color: var(--dim);
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 40px; }
+    h2 { font-size: 24px; margin: 64px 0 16px; }
+    main { padding: 56px 20px 80px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ─── HERO ─────────────────────────────────────────── -->
+  <div style="margin-bottom: 16px;">
+    <span class="tag">Case study</span>
+    <span class="tag">macOS app</span>
+    <span class="tag">2026</span>
+  </div>
+
+  <h1>VoiceScribe</h1>
+  <p class="lede">A voice-to-text tool that disappears. Free, local, open-source — designed against a category dominated by $14/mo subscriptions and cloud APIs.</p>
+
+  <div class="meta-row" style="margin-top: 64px;">
+    <div>
+      <h4>Role</h4>
+      <p>Design + engineering</p>
+    </div>
+    <div>
+      <h4>Timeline</h4>
+      <p>2 weeks</p>
+    </div>
+    <div>
+      <h4>Stack</h4>
+      <p>Python · PyObjC · Whisper · C</p>
+    </div>
+    <div>
+      <h4>Output</h4>
+      <p>Open-source macOS app</p>
+    </div>
+  </div>
+
+  <!-- ─── PROBLEM ───────────────────────────────────────── -->
+  <h2>The problem</h2>
+  <p>Voice-to-text on macOS already exists. But every option costs something — your privacy, your money, or your attention.</p>
+
+  <figure>
+    <svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .lbl { font: 12px -apple-system, system-ui, sans-serif; fill: #888; }
+        .val { font: 600 16px -apple-system, system-ui, sans-serif; fill: #fafafa; }
+        .row line { stroke: #1f1f1f; }
+        .bar { fill: #fafafa; }
+        .bar-dim { fill: #2a2a2a; }
+      </style>
+      <!-- header -->
+      <text x="0" y="20" class="lbl">PRODUCT</text>
+      <text x="240" y="20" class="lbl">COST/YR</text>
+      <text x="380" y="20" class="lbl">LOCAL?</text>
+      <text x="500" y="20" class="lbl">OPEN?</text>
+
+      <!-- Wispr -->
+      <line x1="0" y1="40" x2="600" y2="40" stroke="#1f1f1f"/>
+      <text x="0" y="68" class="val">Wispr Flow</text>
+      <rect x="240" y="56" width="120" height="14" class="bar"/>
+      <text x="365" y="68" class="lbl">$168</text>
+      <text x="380" y="68" class="val">No</text>
+      <text x="500" y="68" class="val">No</text>
+
+      <!-- Superwhisper -->
+      <line x1="0" y1="84" x2="600" y2="84" stroke="#1f1f1f"/>
+      <text x="0" y="112" class="val">Superwhisper</text>
+      <rect x="240" y="100" width="80" height="14" class="bar"/>
+      <text x="325" y="112" class="lbl">$96</text>
+      <text x="380" y="112" class="val">Partial</text>
+      <text x="500" y="112" class="val">No</text>
+
+      <!-- macOS Dictation -->
+      <line x1="0" y1="128" x2="600" y2="128" stroke="#1f1f1f"/>
+      <text x="0" y="156" class="val">macOS Dictation</text>
+      <rect x="240" y="144" width="2" height="14" class="bar-dim"/>
+      <text x="247" y="156" class="lbl">Free, but cloud</text>
+      <text x="380" y="156" class="val">No</text>
+      <text x="500" y="156" class="val">No</text>
+
+      <!-- VoiceScribe -->
+      <line x1="0" y1="172" x2="600" y2="172" stroke="#fafafa" stroke-width="2"/>
+      <text x="0" y="200" class="val">VoiceScribe</text>
+      <rect x="240" y="188" width="2" height="14" class="bar-dim"/>
+      <text x="247" y="200" class="lbl">$0</text>
+      <text x="380" y="200" class="val">Yes</text>
+      <text x="500" y="200" class="val">Yes</text>
+      <line x1="0" y1="216" x2="600" y2="216" stroke="#fafafa" stroke-width="2"/>
+    </svg>
+    <figcaption>The competitive landscape, summer 2026</figcaption>
+  </figure>
+
+  <p>Whisper has been open-source since 2022. The ML problem was solved. The remaining problem was design — wrapping a 1.5GB model in something that feels like a feature, not a tool.</p>
+
+  <!-- ─── INSIGHT ───────────────────────────────────────── -->
+  <h2>The insight</h2>
+  <p>I watched myself dictate. The flow was short:</p>
+
+  <figure>
+    <svg viewBox="0 0 700 80" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .step { font: 600 13px -apple-system, system-ui, sans-serif; fill: #fafafa; }
+        .arr { stroke: #fafafa; stroke-width: 1; fill: none; }
+      </style>
+      <rect x="0" y="20" width="120" height="40" rx="20" fill="none" stroke="#fafafa" stroke-width="1"/>
+      <text x="60" y="45" text-anchor="middle" class="step">tap hotkey</text>
+
+      <line class="arr" x1="120" y1="40" x2="160" y2="40"/>
+      <polygon points="160,40 152,36 152,44" fill="#fafafa"/>
+
+      <rect x="160" y="20" width="120" height="40" rx="20" fill="none" stroke="#fafafa" stroke-width="1"/>
+      <text x="220" y="45" text-anchor="middle" class="step">speak</text>
+
+      <line class="arr" x1="280" y1="40" x2="320" y2="40"/>
+      <polygon points="320,40 312,36 312,44" fill="#fafafa"/>
+
+      <rect x="320" y="20" width="120" height="40" rx="20" fill="none" stroke="#fafafa" stroke-width="1"/>
+      <text x="380" y="45" text-anchor="middle" class="step">tap again</text>
+
+      <line class="arr" x1="440" y1="40" x2="480" y2="40"/>
+      <polygon points="480,40 472,36 472,44" fill="#fafafa"/>
+
+      <rect x="480" y="20" width="120" height="40" rx="20" fill="#fafafa" stroke="#fafafa"/>
+      <text x="540" y="45" text-anchor="middle" class="step" style="fill:#0a0a0a">text appears</text>
+    </svg>
+  </figure>
+
+  <p>Four steps. Anything else is friction. Every design decision after this came from one question: <em>does this stay out of the way?</em></p>
+
+  <!-- ─── PRINCIPLES ───────────────────────────────────── -->
+  <h2>Design principles</h2>
+
+  <div class="grid-2">
+    <div>
+      <h4>1. Invisible until needed</h4>
+      <p style="font-size: 15px;">No menu bar UI. No window. The app exists only in the moments between tap and paste.</p>
+    </div>
+    <div>
+      <h4>2. One gesture, two states</h4>
+      <p style="font-size: 15px;">Double-tap Fn to start. Double-tap Fn to stop. The whole app is two states.</p>
+    </div>
+    <div>
+      <h4>3. Trust through restraint</h4>
+      <p style="font-size: 15px;">Monochrome only. No animations that aren't audio-reactive. No copy that asks for engagement.</p>
+    </div>
+    <div>
+      <h4>4. Local by default</h4>
+      <p style="font-size: 15px;">No sign-in. No account. No API key. Whisper runs on the user's M-series GPU.</p>
+    </div>
+  </div>
+
+  <!-- ─── SOLUTION ─────────────────────────────────────── -->
+  <h2>The solution</h2>
+  <p>A floating pill at the bottom of the screen that breathes with your voice. That's the entire UI.</p>
+
+  <!-- pill rendered in pure CSS+SVG -->
+  <figure>
+    <div style="display:flex; justify-content:center; padding: 32px 0;">
+      <svg viewBox="0 0 214 44" width="214" height="44" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="pillshadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+            <feOffset dx="0" dy="-2"/>
+            <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect x="1" y="1" width="212" height="42" rx="21" fill="#141414" stroke="#333" filter="url(#pillshadow)"/>
+        <!-- 22 dots, simulated waveform amplitudes -->
+        <g fill="#fafafa">
+          <circle cx="14"  cy="22" r="1.6"/>
+          <circle cx="22"  cy="22" r="1.8" opacity="0.65"/>
+          <circle cx="30"  cy="20" r="2.2" opacity="0.7"/>
+          <circle cx="38"  cy="24" r="2.6" opacity="0.75"/>
+          <circle cx="46"  cy="18" r="3.0" opacity="0.85"/>
+          <circle cx="54"  cy="26" r="3.4" opacity="0.95"/>
+          <circle cx="62"  cy="16" r="3.6"/>
+          <circle cx="70"  cy="28" r="3.4" opacity="0.95"/>
+          <circle cx="78"  cy="14" r="3.2" opacity="0.9"/>
+          <circle cx="86"  cy="30" r="2.8" opacity="0.85"/>
+          <circle cx="94"  cy="18" r="2.4" opacity="0.78"/>
+          <circle cx="102" cy="26" r="2.0" opacity="0.7"/>
+          <circle cx="110" cy="22" r="1.8" opacity="0.65"/>
+          <circle cx="118" cy="24" r="1.6" opacity="0.6"/>
+          <circle cx="126" cy="20" r="1.6" opacity="0.6"/>
+          <circle cx="134" cy="22" r="1.6" opacity="0.55"/>
+          <circle cx="142" cy="22" r="1.6" opacity="0.5"/>
+          <circle cx="150" cy="22" r="1.6" opacity="0.5"/>
+          <circle cx="158" cy="22" r="1.6" opacity="0.5"/>
+          <circle cx="166" cy="22" r="1.6" opacity="0.5"/>
+          <circle cx="174" cy="22" r="1.6" opacity="0.5"/>
+        </g>
+        <!-- stop button -->
+        <circle cx="193" cy="22" r="11" fill="#eb4338"/>
+        <rect x="189.5" y="18.5" width="7" height="7" fill="#fff"/>
+      </svg>
+    </div>
+    <figcaption>The pill — 214 × 44 px. The only on-screen feedback.</figcaption>
+  </figure>
+
+  <h3>Anatomy</h3>
+  <figure>
+    <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .ann { font: 11px -apple-system, system-ui, sans-serif; fill: #888; letter-spacing: 0.02em; }
+        .annv { font: 600 12px -apple-system, system-ui, sans-serif; fill: #fafafa; }
+        .ll { stroke: #444; stroke-width: 1; fill: none; }
+      </style>
+
+      <!-- pill at center -->
+      <g transform="translate(243, 90)">
+        <rect x="1" y="1" width="212" height="42" rx="21" fill="#141414" stroke="#333"/>
+        <g fill="#fafafa">
+          <circle cx="14" cy="22" r="1.6"/><circle cx="22" cy="22" r="2"/><circle cx="30" cy="20" r="2.4"/>
+          <circle cx="38" cy="24" r="2.8"/><circle cx="46" cy="18" r="3.2"/><circle cx="54" cy="26" r="3.4"/>
+          <circle cx="62" cy="16" r="3.6"/><circle cx="70" cy="28" r="3.4"/><circle cx="78" cy="14" r="3.2"/>
+          <circle cx="86" cy="30" r="2.8"/><circle cx="94" cy="18" r="2.4"/><circle cx="102" cy="26" r="2"/>
+          <circle cx="110" cy="22" r="1.8"/><circle cx="118" cy="24" r="1.6"/><circle cx="126" cy="20" r="1.6"/>
+          <circle cx="134" cy="22" r="1.6" opacity="0.7"/><circle cx="142" cy="22" r="1.6" opacity="0.6"/>
+          <circle cx="150" cy="22" r="1.6" opacity="0.55"/><circle cx="158" cy="22" r="1.6" opacity="0.5"/>
+          <circle cx="166" cy="22" r="1.6" opacity="0.5"/><circle cx="174" cy="22" r="1.6" opacity="0.5"/>
+        </g>
+        <circle cx="193" cy="22" r="11" fill="#eb4338"/>
+        <rect x="189.5" y="18.5" width="7" height="7" fill="#fff"/>
+      </g>
+
+      <!-- left annotations -->
+      <line class="ll" x1="100" y1="50" x2="244" y2="100"/>
+      <text x="0" y="46" class="ann">22 DOTS</text>
+      <text x="0" y="60" class="annv">audio-reactive</text>
+
+      <line class="ll" x1="100" y1="180" x2="244" y2="120"/>
+      <text x="0" y="178" class="ann">PILL CHASSIS</text>
+      <text x="0" y="192" class="annv">214 × 44 px · 21 px radius</text>
+
+      <!-- right annotations -->
+      <line class="ll" x1="600" y1="50" x2="442" y2="100"/>
+      <text x="600" y="46" class="ann" text-anchor="end">STOP BUTTON</text>
+      <text x="600" y="60" class="annv" text-anchor="end">11px circle · 7px square</text>
+
+      <line class="ll" x1="600" y1="180" x2="442" y2="125"/>
+      <text x="600" y="178" class="ann" text-anchor="end">NSPanel</text>
+      <text x="600" y="192" class="annv" text-anchor="end">non-activating · clickable</text>
+    </svg>
+  </figure>
+
+  <!-- ─── DECISIONS ────────────────────────────────────── -->
+  <h2>Four decisions</h2>
+
+  <div class="decision">
+    <div class="num">01 · Placement</div>
+    <h3>Bottom of screen, not top</h3>
+    <p>The pill sits 80 pixels above the dock. Most typing happens in the lower 60% of the screen — text fields in browsers, chat composers, Spotlight queries. Putting feedback near the action shortens the loop between speech and visual confirmation.</p>
+    <div class="why">Wispr Flow uses a top-anchored bar. It works, but pulls your eyes toward the menu bar — away from where you're actually typing.</div>
+  </div>
+
+  <div class="decision">
+    <div class="num">02 · Focus</div>
+    <h3>NSPanel with NSNonactivatingPanelMask</h3>
+    <p>The first build used a normal NSWindow. Clicking the stop button stole focus from whatever text field the user was typing into — so the auto-pasted text went nowhere. Switching to NSPanel + <code>NSNonactivatingPanelMask</code> made the pill clickable but invisible to the focus system.</p>
+    <div class="why">A non-obvious bug surfaced through real use. Lesson: always test the click in context, not just the click in isolation.</div>
+  </div>
+
+  <div class="decision">
+    <div class="num">03 · Restraint</div>
+    <h3>I removed the menu bar button</h3>
+    <p>The first iteration had a dedicated record toggle in the menu bar. On a MacBook Pro it pushed Bluetooth, Wi-Fi, and Battery indicators behind the camera notch. The single-feature win wasn't worth the system-level loss.</p>
+    <div class="why">Removing features is a design decision. The hotkey covers the same need without taking real estate that wasn't mine.</div>
+  </div>
+
+  <div class="decision">
+    <div class="num">04 · Permissions</div>
+    <h3>A native paste helper for TCC stability</h3>
+    <p>macOS attributes Accessibility permission per-binary. The C launcher inside <code>VoiceScribe.app</code> spawns Python — so when Python tried to send Cmd+V, macOS asked "does <em>Python</em> have permission?" Answer: no, not after the next OS update.</p>
+    <p>Solution: a 50-line C binary inside the .app bundle. Python calls it as a subprocess. macOS now sees the keystroke source as <code>com.voicescribe.app</code> — a stable, signed bundle ID.</p>
+    <div class="why">A design problem masquerading as a permissions bug. The fix needed to land at the OS layer, not the app layer.</div>
+  </div>
+
+  <!-- ─── ARCHITECTURE ─────────────────────────────────── -->
+  <h2>How it works</h2>
+
+  <figure>
+    <svg viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .box { fill: none; stroke: #fafafa; stroke-width: 1; }
+        .box-fill { fill: #fafafa; stroke: #fafafa; }
+        .lbl-light { font: 600 12px -apple-system, system-ui, sans-serif; fill: #fafafa; }
+        .lbl-dark { font: 600 12px -apple-system, system-ui, sans-serif; fill: #0a0a0a; }
+        .sub { font: 10px -apple-system, system-ui, sans-serif; fill: #888; letter-spacing: 0.04em; }
+        .arr { stroke: #fafafa; stroke-width: 1; fill: none; marker-end: url(#arrowhead); }
+        .arr-dashed { stroke: #444; stroke-width: 1; fill: none; stroke-dasharray: 3 3; }
+      </style>
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <polygon points="0,0 8,4 0,8" fill="#fafafa"/>
+        </marker>
+      </defs>
+
+      <!-- mic -->
+      <rect class="box" x="20" y="40" width="120" height="60" rx="2"/>
+      <text x="80" y="68" text-anchor="middle" class="lbl-light">Microphone</text>
+      <text x="80" y="84" text-anchor="middle" class="sub">macOS audio input</text>
+
+      <line class="arr" x1="140" y1="70" x2="180" y2="70"/>
+
+      <!-- recorder -->
+      <rect class="box" x="180" y="40" width="120" height="60" rx="2"/>
+      <text x="240" y="68" text-anchor="middle" class="lbl-light">sounddevice</text>
+      <text x="240" y="84" text-anchor="middle" class="sub">PCM buffer · 16kHz</text>
+
+      <line class="arr" x1="300" y1="70" x2="340" y2="70"/>
+
+      <!-- whisper -->
+      <rect class="box-fill" x="340" y="40" width="120" height="60" rx="2"/>
+      <text x="400" y="68" text-anchor="middle" class="lbl-dark">Whisper</text>
+      <text x="400" y="84" text-anchor="middle" class="sub" style="fill:#0a0a0a">faster-whisper · local</text>
+
+      <line class="arr" x1="460" y1="70" x2="500" y2="70"/>
+
+      <!-- text -->
+      <rect class="box" x="500" y="40" width="120" height="60" rx="2"/>
+      <text x="560" y="68" text-anchor="middle" class="lbl-light">Cleaner</text>
+      <text x="560" y="84" text-anchor="middle" class="sub">filler removal · snippets</text>
+
+      <!-- arrow down -->
+      <line class="arr" x1="560" y1="100" x2="560" y2="180"/>
+
+      <!-- clipboard -->
+      <rect class="box" x="500" y="180" width="120" height="60" rx="2"/>
+      <text x="560" y="208" text-anchor="middle" class="lbl-light">NSPasteboard</text>
+      <text x="560" y="224" text-anchor="middle" class="sub">clipboard</text>
+
+      <line class="arr" x1="500" y1="210" x2="460" y2="210"/>
+
+      <!-- helper (highlighted) -->
+      <rect class="box-fill" x="340" y="180" width="120" height="60" rx="2"/>
+      <text x="400" y="208" text-anchor="middle" class="lbl-dark">paste_helper</text>
+      <text x="400" y="224" text-anchor="middle" class="sub" style="fill:#0a0a0a">native · bundled</text>
+
+      <line class="arr" x1="340" y1="210" x2="300" y2="210"/>
+
+      <!-- focused app -->
+      <rect class="box" x="180" y="180" width="120" height="60" rx="2"/>
+      <text x="240" y="208" text-anchor="middle" class="lbl-light">Focused app</text>
+      <text x="240" y="224" text-anchor="middle" class="sub">receives Cmd+V</text>
+
+      <!-- TCC boundary -->
+      <rect x="320" y="160" width="160" height="100" rx="4" stroke="#444" stroke-dasharray="4 4" fill="none"/>
+      <text x="400" y="276" text-anchor="middle" class="sub">TCC: com.voicescribe.app</text>
+
+      <!-- legend -->
+      <rect x="20" y="320" width="14" height="14" class="box"/>
+      <text x="42" y="332" class="sub">Process</text>
+      <rect x="120" y="320" width="14" height="14" class="box-fill"/>
+      <text x="142" y="332" class="sub">Critical path</text>
+    </svg>
+    <figcaption>End-to-end pipeline. The bundled <code>paste_helper</code> is what makes the keystroke survive macOS updates.</figcaption>
+  </figure>
+
+  <!-- ─── OUTCOMES ─────────────────────────────────────── -->
+  <h2>Outcomes</h2>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num">$0</div>
+      <div class="label">Subscription</div>
+    </div>
+    <div class="stat">
+      <div class="num">100%</div>
+      <div class="label">Local audio</div>
+    </div>
+    <div class="stat">
+      <div class="num">1</div>
+      <div class="label">Install command</div>
+    </div>
+    <div class="stat">
+      <div class="num">~250</div>
+      <div class="label">Lines of UI code</div>
+    </div>
+  </div>
+
+  <p>Shipped publicly as an MIT-licensed repo. Installs via a single curl command or Homebrew tap. The full system — audio capture, transcription, cleanup, paste — runs without leaving the user's machine.</p>
+
+  <!-- ─── LEARNINGS ────────────────────────────────────── -->
+  <h2>What I learned</h2>
+
+  <h3>The OS is the canvas. Respect it.</h3>
+  <p>Three of the four key decisions came from <em>not</em> overriding system behavior — using NSPanel instead of fighting the focus system, using a hotkey instead of crowding the menu bar, signing the helper into the bundle instead of working around TCC.</p>
+
+  <h3>Permission systems are UX problems.</h3>
+  <p>The auto-paste failure looked like a bug. It was actually a design constraint I hadn't internalized — TCC tracks <em>who</em> is asking, not <em>what</em> they're doing. The fix wasn't more code; it was placing the right binary in the right folder.</p>
+
+  <h3>Removing features is a design decision.</h3>
+  <p>The menu bar button, the multi-color waveform, the always-visible toolbar — each one shipped, then got cut. The pill is what's left after the unnecessary parts were removed.</p>
+
+  <blockquote>The product is the part that stayed.</blockquote>
+
+  <!-- ─── FOOTER ───────────────────────────────────────── -->
+  <footer>
+    <div>
+      <a href="https://github.com/kalaanakonda/VoiceScribe">github.com/kalaanakonda/VoiceScribe</a>
+    </div>
+    <div>VoiceScribe — case study, 2026</div>
+  </footer>
+
+</main>
+</body>
+</html>

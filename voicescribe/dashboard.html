@@ -242,11 +242,118 @@
     line-height: 1.5;
     margin-bottom: 10px;
   }
+
+  /* AI polish */
+  .ai-status {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ai-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #555;
+  }
+  .ai-dot.live {
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+  }
+  .ai-dot.idle { background: #6a6a6a; }
+  .ai-dot.warn { background: #e6b800; }
+  .ai-dot.offline { background: #6a3a3a; }
+  .ai-text { flex: 1; min-width: 0; }
+  .ai-title {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .ai-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .ai-sub a { color: #c0c0c0; text-decoration: underline; }
+  .ai-sub code {
+    background: #0a0a0a;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 10px;
+    color: #d8d8d8;
+  }
+  .ai-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .ai-row label {
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .ai-row select {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%237a7a7a' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+  .ai-row select:focus { border-color: #444; }
+
+  /* iOS-style toggle switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #333;
+    transition: 0.18s;
+    border-radius: 20px;
+  }
+  .slider::before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    top: 3px;
+    background-color: #f0f0f0;
+    transition: 0.18s;
+    border-radius: 50%;
+  }
+  .switch input:checked + .slider { background-color: #4ade80; }
+  .switch input:checked + .slider::before { transform: translateX(16px); }
 </style>
 </head>
 <body>
   <div class="tabs">
     <div class="tab active" data-tab="home">Home</div>
+    <div class="tab" data-tab="hist">History</div>
     <div class="tab" data-tab="dict">Dictionary</div>
     <div class="tab" data-tab="snip">Snippets</div>
   </div>
@@ -285,23 +392,50 @@ function send(type, payload = {}) {
   window.webkit.messageHandlers.vsbridge.postMessage({type, ...payload});
 }
 
-// ── HOME (stats + history) ──────────────────────────────────────────────────
+// ── HOME (stats + AI polish + time saved) ──────────────────────────────────
 function renderHome(s) {
-  const empty = s.total_sessions === 0;
-  const historyHtml = empty
-    ? `<div class="empty" style="padding:18px 10px">No sessions yet. Double-tap Fn to record.</div>`
-    : s.history.map(h => `
-        <div class="hitem" data-id="${h.id}">
-          <div class="meta">
-            <span>${fmtTime(h.ts)} · ${h.words} words · ${fmtSecs(h.duration)}</span>
-            <div class="actions">
-              <button class="iconbtn" data-act="copy" data-id="${h.id}">Copy</button>
-              <button class="iconbtn danger" data-act="del" data-id="${h.id}">Delete</button>
-            </div>
-          </div>
-          <div class="text">${escapeHtml(h.text) || '<span style="color:var(--muted)">(no text)</span>'}</div>
+  const p = s.polish || { enabled: false, model: null, ollama_up: false, models: [] };
+
+  let polishBlock;
+  if (!p.ollama_up) {
+    polishBlock = `
+      <div class="ai-status">
+        <div class="ai-dot offline"></div>
+        <div class="ai-text">
+          <div class="ai-title">Ollama not running</div>
+          <div class="ai-sub">Install at <a href="https://ollama.com" target="_blank">ollama.com</a>, then run <code>ollama pull llama3.2:3b</code></div>
         </div>
-      `).join("");
+      </div>`;
+  } else if (p.models.length === 0) {
+    polishBlock = `
+      <div class="ai-status">
+        <div class="ai-dot warn"></div>
+        <div class="ai-text">
+          <div class="ai-title">Ollama running — no models</div>
+          <div class="ai-sub">Run <code>ollama pull llama3.2:3b</code> in your terminal.</div>
+        </div>
+      </div>`;
+  } else {
+    const opts = p.models.map(m =>
+      `<option value="${escapeHtml(m)}" ${m === p.model ? "selected" : ""}>${escapeHtml(m)}</option>`
+    ).join("");
+    polishBlock = `
+      <div class="ai-status">
+        <div class="ai-dot ${p.enabled ? "live" : "idle"}"></div>
+        <div class="ai-text">
+          <div class="ai-title">Polish with local AI</div>
+          <div class="ai-sub">Cleans fillers, fixes grammar, keeps your meaning.</div>
+        </div>
+        <label class="switch">
+          <input id="polish-toggle" type="checkbox" ${p.enabled ? "checked" : ""}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="ai-row">
+        <label>Model</label>
+        <select id="polish-model">${opts}</select>
+      </div>`;
+  }
 
   return `
     <div class="grid">
@@ -309,6 +443,11 @@ function renderHome(s) {
       <div class="stat"><div class="num">${s.total_sessions}</div><div class="lbl">sessions</div></div>
       <div class="stat"><div class="num">${fmtSecs(s.total_secs)}</div><div class="lbl">recorded</div></div>
       <div class="stat"><div class="num">${s.avg_speak_wpm || 0}</div><div class="lbl">avg WPM</div></div>
+    </div>
+
+    <div class="section">
+      <h2>AI Polish</h2>
+      ${polishBlock}
     </div>
 
     <div class="section">
@@ -323,11 +462,6 @@ function renderHome(s) {
         <div class="faint">saved this week</div>
         <div class="faint" style="margin-top:8px">All-time: ${fmtSecs(s.saved_all_secs)}</div>
       </div>
-    </div>
-
-    <div class="section">
-      <h2>History</h2>
-      <div class="history-list">${historyHtml}</div>
     </div>
   `;
 }
@@ -344,6 +478,47 @@ function bindHome() {
       }, 250);
     });
   }
+  const tog = document.getElementById("polish-toggle");
+  if (tog) {
+    tog.addEventListener("change", () => {
+      const v = tog.checked;
+      // Optimistic local update so the toggle stays in the user's chosen
+      // state even if the Python round-trip's vsUpdate arrives stale.
+      if (STATE && STATE.polish) STATE.polish.enabled = v;
+      send("setPolish", {enabled: v});
+    });
+  }
+  const sel = document.getElementById("polish-model");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      const v = sel.value;
+      if (STATE && STATE.polish) STATE.polish.model = v;
+      send("setPolish", {model: v});
+    });
+  }
+}
+
+// ── HISTORY ─────────────────────────────────────────────────────────────────
+function renderHist(s) {
+  if (s.total_sessions === 0) {
+    return `<div class="empty" style="padding:48px 10px">No sessions yet.<br>Double-tap Fn to record.</div>`;
+  }
+  const list = s.history.map(h => `
+    <div class="hitem" data-id="${h.id}">
+      <div class="meta">
+        <span>${fmtTime(h.ts)} · ${h.words} words · ${fmtSecs(h.duration)}</span>
+        <div class="actions">
+          <button class="iconbtn" data-act="copy" data-id="${h.id}">Copy</button>
+          <button class="iconbtn danger" data-act="del" data-id="${h.id}">Delete</button>
+        </div>
+      </div>
+      <div class="text">${escapeHtml(h.text) || '<span style="color:var(--muted)">(no text)</span>'}</div>
+    </div>
+  `).join("");
+  return `<div class="history-list">${list}</div>`;
+}
+
+function bindHist() {
   document.querySelectorAll(".hitem .iconbtn").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = parseInt(btn.dataset.id, 10);
@@ -439,6 +614,7 @@ function render() {
   if (!STATE) return;
   const page = document.getElementById("page");
   if (ACTIVE === "home") { page.innerHTML = renderHome(STATE); bindHome(); }
+  else if (ACTIVE === "hist") { page.innerHTML = renderHist(STATE); bindHist(); }
   else if (ACTIVE === "dict") { page.innerHTML = renderDict(STATE); bindDict(); }
   else if (ACTIVE === "snip") { page.innerHTML = renderSnip(STATE); bindSnip(); }
 }
